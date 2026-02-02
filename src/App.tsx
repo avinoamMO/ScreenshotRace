@@ -15,8 +15,19 @@ import { saveSession, type SessionResult } from './utils/sessionHistory';
 import type { ApiKeys, ProviderName, RaceResult, ScreenshotResult } from './types';
 import { PROVIDERS, isProviderConfigured } from './types';
 
+const STORAGE_KEY = 'screenshot-race-api-keys';
+
+function loadApiKeys(): ApiKeys {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
 function App() {
-  const [apiKeys, setApiKeys] = useState<ApiKeys>({});
+  const [apiKeys, setApiKeys] = useState<ApiKeys>(loadApiKeys);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [enabledProviders, setEnabledProviders] = useState<ProviderName[]>(
     PROVIDERS.map((p) => p.name)
@@ -39,6 +50,11 @@ function App() {
       abortControllerRef.current?.abort();
     };
   }, []);
+
+  // Persist API keys to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(apiKeys));
+  }, [apiKeys]);
 
   const configuredProviderCount = useMemo(
     () => PROVIDERS.filter((p) => isProviderConfigured(p.name, apiKeys)).length,
