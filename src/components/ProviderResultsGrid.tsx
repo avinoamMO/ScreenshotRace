@@ -43,14 +43,14 @@ export const ProviderResultsGrid = memo(function ProviderResultsGrid({
         Results by Provider
       </h2>
 
-      <div className="grid gap-4" style={{
-        gridTemplateColumns: `repeat(${activeProviders.length}, minmax(200px, 1fr))`
-      }}>
+      {/* Horizontal scroll container with fixed-width columns */}
+      <div className="overflow-x-auto">
+        <div className="flex gap-4" style={{ minWidth: 'min-content' }}>
         {activeProviders.map(provider => {
           const providerResults = resultsByProvider.get(provider.name) || [];
 
           return (
-            <div key={provider.name} className="flex flex-col">
+            <div key={provider.name} className="flex flex-col w-72 flex-shrink-0">
               {/* Provider Header */}
               <div
                 className="text-center py-2 px-3 rounded-t-lg font-medium text-white mb-2"
@@ -75,6 +75,7 @@ export const ProviderResultsGrid = memo(function ProviderResultsGrid({
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );
@@ -97,13 +98,13 @@ function ProviderResultCard({ result, providerColor }: ProviderResultCardProps) 
 
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
-      {/* Image */}
+      {/* Image - fixed height container */}
       {result.success && result.imageData ? (
-        <div className="relative">
+        <div className="relative h-44 overflow-hidden bg-gray-900">
           <img
             src={result.imageData}
             alt={`Screenshot of ${domain}`}
-            className="w-full h-auto"
+            className="w-full h-full object-cover object-top"
             loading="lazy"
           />
           {/* Success overlay */}
@@ -112,7 +113,7 @@ function ProviderResultCard({ result, providerColor }: ProviderResultCardProps) 
           </div>
         </div>
       ) : (
-        <div className="h-32 bg-gray-800 flex items-center justify-center">
+        <div className="h-44 bg-gray-800 flex items-center justify-center">
           <span className="text-red-400 text-sm px-2 text-center">
             {result.error || 'Failed'}
           </span>
