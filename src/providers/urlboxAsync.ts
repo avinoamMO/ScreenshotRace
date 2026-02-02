@@ -152,8 +152,11 @@ export async function takeScreenshotBatch(
       return results;
     }
 
-    const pollInterval = getNextInterval(attempt);
-    await new Promise(resolve => setTimeout(resolve, pollInterval));
+    // Wait AFTER first poll, not before (poll immediately first time)
+    if (attempt > 0) {
+      const pollInterval = getNextInterval(attempt - 1);
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
 
     // Poll all pending jobs in parallel
     const pollPromises = pendingJobs
