@@ -50,7 +50,7 @@ export const ProviderResultsGrid = memo(function ProviderResultsGrid({
           const providerResults = resultsByProvider.get(provider.name) || [];
 
           return (
-            <div key={provider.name} className="flex flex-col w-[480px] flex-shrink-0">
+            <div key={provider.name} className="flex flex-col w-[600px] flex-shrink-0">
               {/* Provider Header */}
               <div
                 className="text-center py-2 px-3 rounded-t-lg font-medium text-white mb-2"
@@ -98,13 +98,13 @@ function ProviderResultCard({ result, providerColor }: ProviderResultCardProps) 
 
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
-      {/* Image - fixed height container, large enough to verify quality */}
+      {/* Image - show full screenshot, not cropped */}
       {result.success && result.imageData ? (
-        <div className="relative h-[300px] overflow-hidden bg-gray-900">
+        <div className="relative bg-gray-900">
           <img
             src={result.imageData}
             alt={`Screenshot of ${domain}`}
-            className="w-full h-full object-cover object-top"
+            className="w-full h-auto"
             loading="lazy"
           />
           {/* Success overlay */}
@@ -113,7 +113,7 @@ function ProviderResultCard({ result, providerColor }: ProviderResultCardProps) 
           </div>
         </div>
       ) : (
-        <div className="h-[300px] bg-gray-800 flex items-center justify-center">
+        <div className="h-[200px] bg-gray-800 flex items-center justify-center">
           <span className="text-red-400 text-sm px-2 text-center">
             {result.error || 'Failed'}
           </span>
