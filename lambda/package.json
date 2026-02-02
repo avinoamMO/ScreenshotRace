@@ -1,0 +1,20 @@
+{
+  "name": "screenshot-race-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for taking screenshots with Playwright",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "invoke": "serverless invoke local -f screenshot"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^123.0.1",
+    "puppeteer-core": "^22.6.2"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.136",
+    "esbuild": "^0.20.2",
+    "serverless": "^3.38.0",
+    "serverless-esbuild": "^1.51.0",
+    "typescript": "^5.4.3"
+  }
+}
