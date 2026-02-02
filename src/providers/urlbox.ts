@@ -39,6 +39,7 @@ export async function takeScreenshot(
       width: '1280',
       height: '800',
       delay: '2000',
+      force: 'true',  // Disable URLBox caching - always take fresh screenshot
     });
 
     const queryString = params.toString();

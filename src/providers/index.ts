@@ -167,15 +167,16 @@ export async function raceAllUrls(
 
   if (asyncProviders.includes('urlboxAsync')) {
     asyncPromises.push(
-      urlboxAsyncBatch(urls, apiKeys.urlboxKey || '', apiKeys.urlboxSecret || '', signal)
-        .then(results => {
+      urlboxAsyncBatch(urls, apiKeys.urlboxKey || '', apiKeys.urlboxSecret || '', signal, (result) => {
+          // Incremental callback - report each result as it completes during polling
           if (signal?.aborted) return;
-          for (const result of results) {
-            const urlResults = resultsMap.get(result.url) || [];
-            urlResults.push(result);
-            resultsMap.set(result.url, urlResults);
-            onProgress?.(result);
-          }
+          const urlResults = resultsMap.get(result.url) || [];
+          urlResults.push(result);
+          resultsMap.set(result.url, urlResults);
+          onProgress?.(result);
+        })
+        .then(() => {
+          // All results already reported via onProgress callback
         })
         .catch(error => {
           if (signal?.aborted) return;
@@ -200,15 +201,16 @@ export async function raceAllUrls(
 
   if (asyncProviders.includes('lambdaAsync')) {
     asyncPromises.push(
-      lambdaAsyncBatch(urls, apiKeys.lambdaUrl || '', signal)
-        .then(results => {
+      lambdaAsyncBatch(urls, apiKeys.lambdaUrl || '', signal, (result) => {
+          // Incremental callback - report each result as it completes during polling
           if (signal?.aborted) return;
-          for (const result of results) {
-            const urlResults = resultsMap.get(result.url) || [];
-            urlResults.push(result);
-            resultsMap.set(result.url, urlResults);
-            onProgress?.(result);
-          }
+          const urlResults = resultsMap.get(result.url) || [];
+          urlResults.push(result);
+          resultsMap.set(result.url, urlResults);
+          onProgress?.(result);
+        })
+        .then(() => {
+          // All results already reported via onProgress callback
         })
         .catch(error => {
           if (signal?.aborted) return;

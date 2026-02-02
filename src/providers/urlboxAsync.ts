@@ -26,7 +26,8 @@ export async function takeScreenshotBatch(
   urls: string[],
   apiKey: string,
   apiSecret: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onProgress?: (result: ScreenshotResult) => void
 ): Promise<ScreenshotResult[]> {
   if (!apiKey || !apiSecret) {
     return urls.map(url => ({
@@ -84,6 +85,7 @@ export async function takeScreenshotBatch(
           format: 'png',
           width: 1280,
           height: 800,
+          force: true,  // Disable URLBox caching - always take fresh screenshot
         }),
         signal,
       });
@@ -197,31 +199,37 @@ export async function takeScreenshotBatch(
                   const blob = await imageResponse.blob();
                   const imageData = await blobToDataUrl(blob);
 
-                  results.push({
+                  const successResult: ScreenshotResult = {
                     provider: 'urlboxAsync',
                     url: job.url,
                     success: true,
                     timeMs: performance.now() - job.startTime,
                     imageData,
                     imageSize: blob.size,
-                  });
+                  };
+                  results.push(successResult);
+                  onProgress?.(successResult);
                 } else {
-                  results.push({
+                  const failResult: ScreenshotResult = {
                     provider: 'urlboxAsync',
                     url: job.url,
                     success: false,
                     timeMs: performance.now() - job.startTime,
                     error: 'Failed to fetch rendered image',
-                  });
+                  };
+                  results.push(failResult);
+                  onProgress?.(failResult);
                 }
               } catch (error) {
-                results.push({
+                const errorResult: ScreenshotResult = {
                   provider: 'urlboxAsync',
                   url: job.url,
                   success: false,
                   timeMs: performance.now() - job.startTime,
                   error: 'Failed to fetch rendered image',
-                });
+                };
+                results.push(errorResult);
+                onProgress?.(errorResult);
               }
             });
           } else if (status.status === 'failed') {

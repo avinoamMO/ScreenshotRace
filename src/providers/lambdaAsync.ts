@@ -35,7 +35,8 @@ interface BatchResultsResponse {
 export async function takeScreenshotBatch(
   urls: string[],
   lambdaUrl: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onProgress?: (result: ScreenshotResult) => void
 ): Promise<ScreenshotResult[]> {
   const startTime = performance.now();
 
@@ -146,24 +147,27 @@ export async function takeScreenshotBatch(
           if (result.success !== undefined) {
             completedUrls.add(url);
 
+            let screenshotResult: ScreenshotResult;
             if (result.success && result.screenshot) {
-              results.push({
+              screenshotResult = {
                 provider: 'lambdaAsync',
                 url,
                 success: true,
                 timeMs: result.timeMs || (performance.now() - startTime),
                 imageData: `data:image/webp;base64,${result.screenshot}`,
                 imageSize: result.size,
-              });
+              };
             } else {
-              results.push({
+              screenshotResult = {
                 provider: 'lambdaAsync',
                 url,
                 success: false,
                 timeMs: result.timeMs || (performance.now() - startTime),
                 error: result.error || 'Screenshot failed',
-              });
+              };
             }
+            results.push(screenshotResult);
+            onProgress?.(screenshotResult);  // Report result immediately as it completes
           }
         }
 

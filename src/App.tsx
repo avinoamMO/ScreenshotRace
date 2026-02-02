@@ -191,6 +191,11 @@ function App() {
     setTotalProgress({ completed: 0, total: 0 });
   }, []);
 
+  const handleClear = useCallback(() => {
+    setResults([]);
+    setHoveredResult(null);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Header */}
@@ -275,6 +280,17 @@ function App() {
                   Stop
                 </button>
               )}
+              {!isRacing && results.length > 0 && (
+                <button
+                  onClick={handleClear}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 font-medium rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Clear
+                </button>
+              )}
             </div>
             <UrlInput
               onRace={handleRace}
@@ -321,7 +337,7 @@ function App() {
               </div>
 
               {/* Preview Panel */}
-              <div className="lg:col-span-1 h-[500px]">
+              <div className="lg:col-span-1 h-[700px]">
                 <PreviewPanel result={hoveredResult} />
               </div>
             </section>
