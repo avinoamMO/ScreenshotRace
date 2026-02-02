@@ -6,9 +6,12 @@ import { ProviderToggle } from './components/ProviderToggle';
 import { SettingsModal } from './components/SettingsModal';
 import { Stopwatch } from './components/Stopwatch';
 import { ComparisonTable } from './components/ComparisonTable';
+import { ProviderResultsGrid } from './components/ProviderResultsGrid';
+import { HistoricalCharts } from './components/HistoricalCharts';
 import { raceAllUrls } from './providers';
 import { checkQuality } from './utils/qualityCheck';
 import { Semaphore } from './utils/semaphore';
+import { saveSession, type SessionResult } from './utils/sessionHistory';
 import type { ApiKeys, ProviderName, RaceResult, ScreenshotResult } from './types';
 import { PROVIDERS, isProviderConfigured } from './types';
 
@@ -27,6 +30,7 @@ function App() {
     completed: number;
     total: number;
   }>({ completed: 0, total: 0 });
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Cleanup abort controller on unmount
@@ -145,6 +149,22 @@ function App() {
       setResults(resultsWithQuality);
       setTotalProgress({ completed: 0, total: 0 });
       setIsRacing(false);
+
+      // Save session to history for charts
+      const sessionResults: SessionResult[] = resultsWithQuality.flatMap(raceResult =>
+        raceResult.results.map(result => ({
+          timestamp: Date.now(),
+          url: result.url,
+          provider: result.provider,
+          timeMs: result.timeMs,
+          success: result.success,
+          imageSize: result.imageSize,
+        }))
+      );
+      if (sessionResults.length > 0) {
+        saveSession(sessionResults);
+        setHistoryRefreshKey(k => k + 1);
+      }
     },
     [enabledProviders, apiKeys]
   );
@@ -297,6 +317,18 @@ function App() {
               <ComparisonTable results={results} />
             </section>
           )}
+
+          {/* Provider Results Grid - Images by Provider */}
+          {results.length > 0 && (
+            <section>
+              <ProviderResultsGrid results={results} />
+            </section>
+          )}
+
+          {/* Historical Performance Charts */}
+          <section>
+            <HistoricalCharts key={historyRefreshKey} />
+          </section>
         </div>
       </main>
 
