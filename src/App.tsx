@@ -88,6 +88,9 @@ function App() {
       setIsRacing(true);
       setResults([]);
 
+      // IMPORTANT: Record race start time - all timings measured from this moment
+      const raceStartTime = performance.now();
+
       const totalJobs = urls.length * activeProviders.length;
       let completedJobs = 0;
       setTotalProgress({ completed: 0, total: totalJobs });
@@ -102,21 +105,27 @@ function App() {
       const qualitySemaphore = new Semaphore(10);
 
       // Race ALL URLs in parallel with true async
-      const finalResultsMap = await raceAllUrls(
+      await raceAllUrls(
         urls,
         activeProviders,
         apiKeys,
         async (result) => {
           if (signal.aborted) return;
 
+          // Measure time from race start to NOW (when image arrived in UI)
+          const timeFromRaceStart = performance.now() - raceStartTime;
+
           completedJobs++;
           setTotalProgress({ completed: completedJobs, total: totalJobs });
 
+          // Override timeMs with time from race start (not per-request time)
+          const resultWithCorrectTime = { ...result, timeMs: timeFromRaceStart };
+
           // Run quality check (with semaphore to limit concurrent checks)
-          let resultWithQuality = result;
+          let resultWithQuality = resultWithCorrectTime;
           if (result.success) {
             const quality = await qualitySemaphore.withLock(() => checkQuality(result));
-            resultWithQuality = { ...result, quality };
+            resultWithQuality = { ...resultWithCorrectTime, quality };
           }
 
           // Update results map
@@ -137,37 +146,19 @@ function App() {
         signal
       );
 
-      // Final update with all results
-      const finalResults: RaceResult[] = urls.map((url) => {
-        const urlResults = finalResultsMap.get(url) || [];
-        return {
-          url,
-          results: urlResults,
-        };
-      });
+      // Final update - use resultsMap which has correct timing from race start
+      // (finalResultsMap has per-request timing which is not what we want)
+      const finalResults: RaceResult[] = urls.map((url) => ({
+        url,
+        results: resultsMap.get(url) || [],
+      }));
 
-      // Run quality checks on any results that don't have them yet (with semaphore)
-      const resultsWithQuality = await Promise.all(
-        finalResults.map(async (raceResult) => ({
-          ...raceResult,
-          results: await Promise.all(
-            raceResult.results.map(async (result) => {
-              if (result.success && !result.quality) {
-                const quality = await qualitySemaphore.withLock(() => checkQuality(result));
-                return { ...result, quality };
-              }
-              return result;
-            })
-          ),
-        }))
-      );
-
-      setResults(resultsWithQuality);
+      setResults(finalResults);
       setTotalProgress({ completed: 0, total: 0 });
       setIsRacing(false);
 
       // Save session to history for charts
-      const sessionResults: SessionResult[] = resultsWithQuality.flatMap(raceResult =>
+      const sessionResults: SessionResult[] = finalResults.flatMap(raceResult =>
         raceResult.results.map(result => ({
           timestamp: Date.now(),
           url: result.url,
