@@ -16,7 +16,7 @@ export interface SessionSummary {
 }
 
 const STORAGE_KEY = 'screenshot-race-history';
-const MAX_SESSIONS = 20;
+const MAX_SESSIONS = 50;
 
 export function loadSessionHistory(): SessionSummary[] {
   try {
@@ -39,10 +39,7 @@ export function saveSession(results: SessionResult[]): SessionSummary {
     results,
   };
 
-  // Add new session at the beginning
   history.unshift(session);
-
-  // Keep only the last MAX_SESSIONS
   const trimmed = history.slice(0, MAX_SESSIONS);
 
   try {
@@ -60,15 +57,36 @@ export function clearSessionHistory(): void {
 
 export interface ProviderStats {
   provider: string;
+  totalRuns: number;
+  successfulRuns: number;
+  failedRuns: number;
+  successRate: number;
+  // Timing stats - ONLY from successful runs
   avgTimeMs: number;
+  medianTimeMs: number;
   minTimeMs: number;
   maxTimeMs: number;
-  successRate: number;
-  totalRuns: number;
+  p95TimeMs: number;
+  // Size stats
   avgSizeKb: number;
 }
 
+function median(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function percentile(arr: number[], p: number): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const index = Math.ceil((p / 100) * sorted.length) - 1;
+  return sorted[Math.max(0, index)];
+}
+
 export function calculateProviderStats(history: SessionSummary[]): ProviderStats[] {
+  // Group all results by provider
   const byProvider = new Map<string, SessionResult[]>();
 
   for (const session of history) {
@@ -81,23 +99,34 @@ export function calculateProviderStats(history: SessionSummary[]): ProviderStats
 
   const stats: ProviderStats[] = [];
 
-  byProvider.forEach((results, provider) => {
-    const successful = results.filter(r => r.success);
+  byProvider.forEach((allResults, provider) => {
+    // Separate successful and failed
+    const successful = allResults.filter(r => r.success);
+    const failed = allResults.filter(r => !r.success);
+
+    // Timing: ONLY from successful runs (failed runs just measure time-to-error)
     const times = successful.map(r => r.timeMs);
     const sizes = successful.filter(r => r.imageSize).map(r => r.imageSize!);
 
     stats.push({
       provider,
+      totalRuns: allResults.length,
+      successfulRuns: successful.length,
+      failedRuns: failed.length,
+      successRate: allResults.length > 0 ? (successful.length / allResults.length) * 100 : 0,
+      // Timing stats
       avgTimeMs: times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : 0,
+      medianTimeMs: median(times),
       minTimeMs: times.length > 0 ? Math.min(...times) : 0,
       maxTimeMs: times.length > 0 ? Math.max(...times) : 0,
-      successRate: results.length > 0 ? (successful.length / results.length) * 100 : 0,
-      totalRuns: results.length,
+      p95TimeMs: percentile(times, 95),
+      // Size
       avgSizeKb: sizes.length > 0 ? (sizes.reduce((a, b) => a + b, 0) / sizes.length) / 1024 : 0,
     });
   });
 
-  return stats.sort((a, b) => a.avgTimeMs - b.avgTimeMs);
+  // Sort by median time (more representative than average)
+  return stats.sort((a, b) => a.medianTimeMs - b.medianTimeMs);
 }
 
 export interface TimeSeriesPoint {
@@ -112,7 +141,7 @@ export function getTimeSeriesData(history: SessionSummary[]): TimeSeriesPoint[] 
     .map(session => {
       const point: TimeSeriesPoint = { timestamp: session.timestamp };
 
-      // Calculate average time per provider for this session
+      // Calculate median time per provider for this session (only successful)
       const byProvider = new Map<string, number[]>();
       for (const result of session.results) {
         if (result.success) {
@@ -123,7 +152,8 @@ export function getTimeSeriesData(history: SessionSummary[]): TimeSeriesPoint[] 
       }
 
       byProvider.forEach((times, provider) => {
-        point[provider] = times.reduce((a, b) => a + b, 0) / times.length;
+        // Use median for the time series - more stable than average
+        point[provider] = median(times);
       });
 
       return point;

@@ -64,10 +64,10 @@ export const HistoricalCharts = memo(function HistoricalCharts() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Average Time Comparison */}
+        {/* Median Response Time (more representative than average) */}
         <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
           <h3 className="text-md font-medium text-gray-400 mb-4">
-            Average Response Time by Provider
+            Median Response Time by Provider
           </h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={stats} layout="vertical">
@@ -76,9 +76,9 @@ export const HistoricalCharts = memo(function HistoricalCharts() {
               <YAxis type="category" dataKey="provider" stroke="#9ca3af" width={100} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
-                formatter={(value) => value != null ? [`${(Number(value)/1000).toFixed(2)}s`, 'Avg Time'] : null}
+                formatter={(value) => value != null ? [`${(Number(value)/1000).toFixed(2)}s`, 'Median Time'] : null}
               />
-              <Bar dataKey="avgTimeMs" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="medianTimeMs" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -150,19 +150,21 @@ export const HistoricalCharts = memo(function HistoricalCharts() {
         {/* Stats Table */}
         <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 lg:col-span-2">
           <h3 className="text-md font-medium text-gray-400 mb-4">
-            Detailed Statistics
+            Detailed Statistics (timing from successful runs only)
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-gray-400 border-b border-gray-700">
                   <th className="text-left py-2 px-3">Provider</th>
-                  <th className="text-right py-2 px-3">Runs</th>
-                  <th className="text-right py-2 px-3">Avg Time</th>
-                  <th className="text-right py-2 px-3">Min Time</th>
-                  <th className="text-right py-2 px-3">Max Time</th>
-                  <th className="text-right py-2 px-3">Success %</th>
-                  <th className="text-right py-2 px-3">Avg Size</th>
+                  <th className="text-right py-2 px-3">OK/Fail</th>
+                  <th className="text-right py-2 px-3">Success</th>
+                  <th className="text-right py-2 px-3">Median</th>
+                  <th className="text-right py-2 px-3">Avg</th>
+                  <th className="text-right py-2 px-3">Min</th>
+                  <th className="text-right py-2 px-3">Max</th>
+                  <th className="text-right py-2 px-3">p95</th>
+                  <th className="text-right py-2 px-3">Size</th>
                 </tr>
               </thead>
               <tbody>
@@ -176,21 +178,29 @@ export const HistoricalCharts = memo(function HistoricalCharts() {
                       {stat.provider}
                     </td>
                     <td className="text-right py-2 px-3 font-mono text-gray-300">
-                      {stat.totalRuns}
-                    </td>
-                    <td className="text-right py-2 px-3 font-mono text-gray-300">
-                      {(stat.avgTimeMs / 1000).toFixed(2)}s
-                    </td>
-                    <td className="text-right py-2 px-3 font-mono text-green-400">
-                      {(stat.minTimeMs / 1000).toFixed(2)}s
-                    </td>
-                    <td className="text-right py-2 px-3 font-mono text-red-400">
-                      {(stat.maxTimeMs / 1000).toFixed(2)}s
+                      <span className="text-green-400">{stat.successfulRuns}</span>
+                      <span className="text-gray-500">/</span>
+                      <span className="text-red-400">{stat.failedRuns}</span>
                     </td>
                     <td className="text-right py-2 px-3 font-mono">
                       <span className={stat.successRate >= 90 ? 'text-green-400' : stat.successRate >= 70 ? 'text-yellow-400' : 'text-red-400'}>
-                        {stat.successRate.toFixed(1)}%
+                        {stat.successRate.toFixed(0)}%
                       </span>
+                    </td>
+                    <td className="text-right py-2 px-3 font-mono text-purple-400">
+                      {stat.medianTimeMs > 0 ? `${(stat.medianTimeMs / 1000).toFixed(2)}s` : '-'}
+                    </td>
+                    <td className="text-right py-2 px-3 font-mono text-gray-300">
+                      {stat.avgTimeMs > 0 ? `${(stat.avgTimeMs / 1000).toFixed(2)}s` : '-'}
+                    </td>
+                    <td className="text-right py-2 px-3 font-mono text-green-400">
+                      {stat.minTimeMs > 0 ? `${(stat.minTimeMs / 1000).toFixed(2)}s` : '-'}
+                    </td>
+                    <td className="text-right py-2 px-3 font-mono text-red-400">
+                      {stat.maxTimeMs > 0 ? `${(stat.maxTimeMs / 1000).toFixed(2)}s` : '-'}
+                    </td>
+                    <td className="text-right py-2 px-3 font-mono text-orange-400">
+                      {stat.p95TimeMs > 0 ? `${(stat.p95TimeMs / 1000).toFixed(2)}s` : '-'}
                     </td>
                     <td className="text-right py-2 px-3 font-mono text-gray-300">
                       {stat.avgSizeKb > 0 ? `${stat.avgSizeKb.toFixed(0)}KB` : '-'}
