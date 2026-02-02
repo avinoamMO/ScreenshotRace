@@ -114,9 +114,14 @@ export function ComparisonTable({ results }: ComparisonTableProps) {
                         className="w-4 h-4 rounded-full"
                         style={{ backgroundColor: stat.provider.color }}
                       />
-                      <span className="font-medium text-white capitalize">
-                        {stat.provider.name}
+                      <span className="font-medium text-white">
+                        {stat.provider.label}
                       </span>
+                      {stat.provider.isAsync && (
+                        <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-cyan-900/50 text-cyan-400 rounded">
+                          ASYNC
+                        </span>
+                      )}
                       {isFastest && (
                         <span className="px-2 py-0.5 text-xs font-medium bg-green-900/50 text-green-400 rounded-full">
                           Fastest

@@ -3,11 +3,10 @@ import { UrlInput } from './components/UrlInput';
 import { RaceChart } from './components/RaceChart';
 import { PreviewPanel } from './components/PreviewPanel';
 import { ProviderToggle } from './components/ProviderToggle';
-import { ProgressIndicator } from './components/ProgressIndicator';
 import { SettingsModal } from './components/SettingsModal';
 import { Stopwatch } from './components/Stopwatch';
 import { ComparisonTable } from './components/ComparisonTable';
-import { raceProviders } from './providers';
+import { raceAllUrls } from './providers';
 import { checkQuality } from './utils/qualityCheck';
 import type { ApiKeys, ProviderName, RaceResult, ScreenshotResult } from './types';
 import { PROVIDERS, isProviderConfigured } from './types';
@@ -23,10 +22,10 @@ function App() {
   const [hoveredResult, setHoveredResult] = useState<ScreenshotResult | null>(
     null
   );
-  const [currentUrl, setCurrentUrl] = useState<string>('');
-  const [currentProgress, setCurrentProgress] = useState<ScreenshotResult[]>(
-    []
-  );
+  const [totalProgress, setTotalProgress] = useState<{
+    completed: number;
+    total: number;
+  }>({ completed: 0, total: 0 });
   const stopRaceRef = useRef(false);
 
   const configuredProviderCount = PROVIDERS.filter((p) =>
@@ -57,47 +56,78 @@ function App() {
       setIsRacing(true);
       setResults([]);
 
-      const allResults: RaceResult[] = [];
+      const totalJobs = urls.length * activeProviders.length;
+      let completedJobs = 0;
+      setTotalProgress({ completed: 0, total: totalJobs });
 
+      // Track results as they come in
+      const resultsMap = new Map<string, ScreenshotResult[]>();
       for (const url of urls) {
-        if (stopRaceRef.current) break;
-
-        setCurrentUrl(url);
-        setCurrentProgress([]);
-
-        const urlResults = await raceProviders(
-          url,
-          activeProviders,
-          apiKeys,
-          (result) => {
-            setCurrentProgress((prev) => [...prev, result]);
-          }
-        );
-
-        if (stopRaceRef.current) break;
-
-        // Run quality checks
-        const resultsWithQuality = await Promise.all(
-          urlResults.map(async (result) => {
-            if (result.success) {
-              const quality = await checkQuality(result);
-              return { ...result, quality };
-            }
-            return result;
-          })
-        );
-
-        const raceResult: RaceResult = {
-          url,
-          results: resultsWithQuality,
-        };
-
-        allResults.push(raceResult);
-        setResults([...allResults]);
+        resultsMap.set(url, []);
       }
 
-      setCurrentUrl('');
-      setCurrentProgress([]);
+      // Race ALL URLs in parallel with true async
+      const finalResultsMap = await raceAllUrls(
+        urls,
+        activeProviders,
+        apiKeys,
+        async (result) => {
+          if (stopRaceRef.current) return;
+
+          completedJobs++;
+          setTotalProgress({ completed: completedJobs, total: totalJobs });
+
+          // Run quality check
+          let resultWithQuality = result;
+          if (result.success) {
+            const quality = await checkQuality(result);
+            resultWithQuality = { ...result, quality };
+          }
+
+          // Update results map
+          const urlResults = resultsMap.get(result.url) || [];
+          urlResults.push(resultWithQuality);
+          resultsMap.set(result.url, urlResults);
+
+          // Convert map to array and update state
+          const raceResults: RaceResult[] = urls
+            .map((url) => ({
+              url,
+              results: resultsMap.get(url) || [],
+            }))
+            .filter((r) => r.results.length > 0);
+
+          setResults(raceResults);
+        }
+      );
+
+      // Final update with all results
+      const finalResults: RaceResult[] = urls.map((url) => {
+        const urlResults = finalResultsMap.get(url) || [];
+        return {
+          url,
+          results: urlResults,
+        };
+      });
+
+      // Run quality checks on any results that don't have them yet
+      const resultsWithQuality = await Promise.all(
+        finalResults.map(async (raceResult) => ({
+          ...raceResult,
+          results: await Promise.all(
+            raceResult.results.map(async (result) => {
+              if (result.success && !result.quality) {
+                const quality = await checkQuality(result);
+                return { ...result, quality };
+              }
+              return result;
+            })
+          ),
+        }))
+      );
+
+      setResults(resultsWithQuality);
+      setTotalProgress({ completed: 0, total: 0 });
       setIsRacing(false);
     },
     [enabledProviders, apiKeys]
@@ -106,8 +136,7 @@ function App() {
   const handleStop = useCallback(() => {
     stopRaceRef.current = true;
     setIsRacing(false);
-    setCurrentUrl('');
-    setCurrentProgress([]);
+    setTotalProgress({ completed: 0, total: 0 });
   }, []);
 
   return (
@@ -204,15 +233,27 @@ function App() {
           </section>
 
           {/* Progress Indicator */}
-          {isRacing && currentUrl && (
-            <section>
-              <ProgressIndicator
-                currentUrl={currentUrl}
-                completedProviders={currentProgress}
-                enabledProviders={enabledProviders.filter((p) =>
-                  isProviderConfigured(p, apiKeys)
-                )}
-              />
+          {isRacing && totalProgress.total > 0 && (
+            <section className="w-full max-w-2xl mx-auto">
+              <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-gray-400 text-sm">Progress</span>
+                  <span className="text-white text-sm font-mono">
+                    {totalProgress.completed} / {totalProgress.total}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${(totalProgress.completed / totalProgress.total) * 100}%`,
+                    }}
+                  />
+                </div>
+                <p className="text-gray-500 text-xs mt-2 text-center">
+                  All providers racing in parallel
+                </p>
+              </div>
             </section>
           )}
 
@@ -235,7 +276,7 @@ function App() {
           )}
 
           {/* Comparison Table */}
-          {results.length > 0 && !isRacing && (
+          {results.length > 0 && (
             <section>
               <ComparisonTable results={results} />
             </section>

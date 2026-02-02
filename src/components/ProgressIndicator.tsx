@@ -44,8 +44,8 @@ export function ProgressIndicator({
                 }}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs capitalize text-gray-200">
-                    {provider.name}
+                  <span className="text-xs text-gray-200">
+                    {provider.label}
                   </span>
                   {isComplete ? (
                     result?.success ? (

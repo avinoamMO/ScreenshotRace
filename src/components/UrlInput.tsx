@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ApiKeys, ProviderName } from '../types';
-import { PROVIDERS, isProviderConfigured } from '../types';
+import { isProviderConfigured } from '../types';
 import { takeScreenshot } from '../providers';
 
 interface UrlInputProps {
@@ -8,12 +8,6 @@ interface UrlInputProps {
   isRacing: boolean;
   apiKeys: ApiKeys;
   enabledProviders: ProviderName[];
-}
-
-interface WarmUpStatus {
-  provider: ProviderName;
-  status: 'pending' | 'testing' | 'success' | 'error';
-  timeMs?: number;
 }
 
 const DEFAULT_URLS = [
@@ -58,7 +52,7 @@ export function UrlInput({ onRace, isRacing, apiKeys, enabledProviders }: UrlInp
   const [urlText, setUrlText] = useState(DEFAULT_URLS.join('\n'));
   const [isWarming, setIsWarming] = useState(false);
   const [warmUpComplete, setWarmUpComplete] = useState(false);
-  const [warmUpStatuses, setWarmUpStatuses] = useState<WarmUpStatus[]>([]);
+  const [populateCount, setPopulateCount] = useState(5);
 
   const configuredProviders = enabledProviders.filter((p) =>
     isProviderConfigured(p, apiKeys)
@@ -69,35 +63,16 @@ export function UrlInput({ onRace, isRacing, apiKeys, enabledProviders }: UrlInp
 
     setIsWarming(true);
     setWarmUpComplete(false);
-    setWarmUpStatuses(
-      configuredProviders.map((p) => ({ provider: p, status: 'pending' }))
-    );
 
     const testUrl = 'https://example.com';
 
+    // Warm up all providers in parallel
     await Promise.all(
       configuredProviders.map(async (provider) => {
-        setWarmUpStatuses((prev) =>
-          prev.map((s) =>
-            s.provider === provider ? { ...s, status: 'testing' } : s
-          )
-        );
-
         try {
-          const result = await takeScreenshot(provider, testUrl, apiKeys);
-          setWarmUpStatuses((prev) =>
-            prev.map((s) =>
-              s.provider === provider
-                ? { ...s, status: result.success ? 'success' : 'error', timeMs: result.timeMs }
-                : s
-            )
-          );
+          await takeScreenshot(provider, testUrl, apiKeys);
         } catch {
-          setWarmUpStatuses((prev) =>
-            prev.map((s) =>
-              s.provider === provider ? { ...s, status: 'error' } : s
-            )
-          );
+          // Ignore errors during warmup
         }
       })
     );
@@ -142,19 +117,35 @@ export function UrlInput({ onRace, isRacing, apiKeys, enabledProviders }: UrlInp
         disabled={isRacing}
       />
       <div className="mt-4 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-400">
-            {urlText.split('\n').filter((u) => u.trim()).length} URLs
-          </span>
+        <div className="flex items-center gap-2">
+          {/* - Button */}
           <button
-            onClick={() => setUrlText(getRandomUrls(5).join('\n'))}
+            onClick={() => setPopulateCount((c) => Math.max(1, c - 1))}
+            disabled={isRacing || populateCount <= 1}
+            className="w-8 h-8 flex items-center justify-center bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-gray-300 rounded-lg transition-colors text-lg font-bold"
+          >
+            -
+          </button>
+
+          {/* Populate URLs Button with count */}
+          <button
+            onClick={() => setUrlText(getRandomUrls(populateCount).join('\n'))}
             disabled={isRacing}
             className="text-sm px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 text-gray-300 rounded-lg transition-colors flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Populate URLs
+            Populate {populateCount} URLs
+          </button>
+
+          {/* + Button */}
+          <button
+            onClick={() => setPopulateCount((c) => Math.min(NEWS_URLS.length, c + 1))}
+            disabled={isRacing || populateCount >= NEWS_URLS.length}
+            className="w-8 h-8 flex items-center justify-center bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-gray-300 rounded-lg transition-colors text-lg font-bold"
+          >
+            +
           </button>
         </div>
         <div className="flex items-center gap-3">

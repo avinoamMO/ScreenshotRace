@@ -17,14 +17,18 @@ export async function takeScreenshot(
   }
 
   try {
+    // ZenRows requires the URL to be properly encoded
+    // We manually construct the query string to ensure proper encoding
     const params = new URLSearchParams({
       apikey: apiKey,
-      url,
+      js_render: 'true',
       screenshot: 'true',
       screenshot_fullpage: 'false',
     });
 
-    const response = await fetch(`/api/zenrows/v1/?${params.toString()}`);
+    // Double-encode the URL because Vite proxy decodes it once during forwarding
+    const doubleEncodedUrl = encodeURIComponent(encodeURIComponent(url));
+    const response = await fetch(`/api/zenrows/v1/?${params.toString()}&url=${doubleEncodedUrl}`);
 
     const timeMs = performance.now() - startTime;
 

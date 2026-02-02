@@ -87,6 +87,10 @@ export function WarmUpButton({ apiKeys, enabledProviders }: WarmUpButtonProps) {
     return PROVIDERS.find((p) => p.name === name)?.color || '#888';
   };
 
+  const getProviderLabel = (name: ProviderName) => {
+    return PROVIDERS.find((p) => p.name === name)?.label || name;
+  };
+
   const formatTime = (ms: number) => {
     if (ms < 1000) return `${Math.round(ms)}ms`;
     return `${(ms / 1000).toFixed(2)}s`;
@@ -164,7 +168,7 @@ export function WarmUpButton({ apiKeys, enabledProviders }: WarmUpButtonProps) {
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: getProviderColor(status.provider) }}
                   />
-                  <span className="text-sm text-gray-300 capitalize">{status.provider}</span>
+                  <span className="text-sm text-gray-300">{getProviderLabel(status.provider)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {status.status === 'pending' && (

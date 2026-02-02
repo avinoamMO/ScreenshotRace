@@ -19,11 +19,13 @@ interface RaceChartProps {
 interface ChartDataItem {
   name: string;
   url: string;
-  browserless?: number;
-  urlbox?: number;
-  zenrows?: number;
-  lambda?: number;
+  [key: string]: string | number | Record<string, ScreenshotResult> | undefined;
   results: Record<string, ScreenshotResult>;
+}
+
+function getProviderLabel(name: string): string {
+  const provider = PROVIDERS.find(p => p.name === name);
+  return provider?.label || name;
 }
 
 function truncateUrl(url: string, maxLength = 25): string {
@@ -45,7 +47,7 @@ function formatTime(ms: number): string {
 }
 
 export function RaceChart({ results, onHover }: RaceChartProps) {
-  const chartData: ChartDataItem[] = results.map((race, index) => {
+  const chartData: ChartDataItem[] = results.map((race) => {
     const item: ChartDataItem = {
       name: truncateUrl(race.url),
       url: race.url,
@@ -112,12 +114,12 @@ export function RaceChart({ results, onHover }: RaceChartProps) {
               borderRadius: '8px',
               color: '#fff',
             }}
-            formatter={(value: number, name: string) => [formatTime(value), name]}
+            formatter={(value, name) => [formatTime(value as number), getProviderLabel(name as string)]}
             labelFormatter={(label) => `URL: ${label}`}
           />
           <Legend
             wrapperStyle={{ paddingTop: '10px' }}
-            formatter={(value) => <span style={{ color: '#d1d5db', textTransform: 'capitalize' }}>{value}</span>}
+            formatter={(value) => <span style={{ color: '#d1d5db' }}>{getProviderLabel(value)}</span>}
           />
           {PROVIDERS.map((provider) => (
             <Bar

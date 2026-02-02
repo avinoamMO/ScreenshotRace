@@ -22,19 +22,29 @@ export interface RaceResult {
   results: ScreenshotResult[];
 }
 
-export type ProviderName = 'browserless' | 'urlbox' | 'zenrows' | 'lambda';
+export type ProviderName =
+  | 'browserless'
+  | 'urlbox'
+  | 'urlboxAsync'
+  | 'zenrows'
+  | 'lambda'
+  | 'lambdaAsync';
 
 export interface ProviderConfig {
   name: ProviderName;
+  label: string;
   color: string;
   enabled: boolean;
+  isAsync?: boolean;
 }
 
 export const PROVIDERS: ProviderConfig[] = [
-  { name: 'browserless', color: '#8b5cf6', enabled: true }, // purple
-  { name: 'urlbox', color: '#3b82f6', enabled: true },      // blue
-  { name: 'zenrows', color: '#22c55e', enabled: true },     // green
-  { name: 'lambda', color: '#f97316', enabled: true },      // orange
+  { name: 'browserless', label: 'Browserless', color: '#8b5cf6', enabled: true },
+  { name: 'urlbox', label: 'URLBox', color: '#3b82f6', enabled: true },
+  { name: 'urlboxAsync', label: 'URLBox Async', color: '#06b6d4', enabled: true, isAsync: true },
+  { name: 'zenrows', label: 'ZenRows', color: '#22c55e', enabled: true },
+  { name: 'lambda', label: 'Lambda', color: '#f97316', enabled: true },
+  { name: 'lambdaAsync', label: 'Lambda Async', color: '#ec4899', enabled: true, isAsync: true },
 ];
 
 export interface ApiKeys {
@@ -55,10 +65,14 @@ export function isProviderConfigured(
     case 'browserless':
       return !!apiKeys.browserless;
     case 'urlbox':
+    case 'urlboxAsync':
       return !!apiKeys.urlboxKey && !!apiKeys.urlboxSecret;
     case 'zenrows':
       return !!apiKeys.zenrows;
     case 'lambda':
+      return !!apiKeys.lambdaUrl;
+    case 'lambdaAsync':
+      // Lambda Async only needs Lambda URL (uses its own Puppeteer via SQS)
       return !!apiKeys.lambdaUrl;
     default:
       return false;

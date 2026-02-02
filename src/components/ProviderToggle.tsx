@@ -23,7 +23,7 @@ export function ProviderToggle({
             key={provider.name}
             onClick={() => isConfigured && onToggle(provider.name)}
             disabled={!isConfigured}
-            className={`px-4 py-2 rounded-lg border-2 transition-all duration-200 capitalize font-medium ${
+            className={`px-4 py-2 rounded-lg border-2 transition-all duration-200 font-medium ${
               !isConfigured
                 ? 'bg-transparent text-gray-600 border-gray-800 cursor-not-allowed opacity-50'
                 : isActive
@@ -43,7 +43,12 @@ export function ProviderToggle({
                 }`}
                 style={{ backgroundColor: isConfigured ? provider.color : '#4b5563' }}
               />
-              <span>{provider.name}</span>
+              <span>{provider.label}</span>
+              {provider.isAsync && (
+                <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-cyan-900/50 text-cyan-400 rounded">
+                  ASYNC
+                </span>
+              )}
               {!isConfigured && (
                 <svg
                   className="w-4 h-4 text-gray-600"

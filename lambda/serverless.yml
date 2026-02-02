@@ -7,10 +7,33 @@ provider:
   timeout: 60
   memorySize: 3008
   architecture: x86_64
+  environment:
+    RESULTS_BUCKET: ${self:service}-results-${sls:stage}
+    JOBS_QUEUE_URL: !Ref JobsQueue
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+          Resource:
+            - arn:aws:s3:::${self:service}-results-${sls:stage}
+            - arn:aws:s3:::${self:service}-results-${sls:stage}/*
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:GetQueueAttributes
+          Resource:
+            - !GetAtt JobsQueue.Arn
 
 functions:
+  # Original Puppeteer screenshot endpoint (sync)
   screenshot:
-    handler: handler.handler
+    handler: handler.screenshot
     events:
       - http:
           path: screenshot
@@ -20,6 +43,74 @@ functions:
           path: screenshot
           method: options
           cors: true
+
+  # Async screenshot - queues jobs to SQS, returns immediately
+  screenshotAsync:
+    handler: handler.screenshotAsync
+    timeout: 10
+    memorySize: 256
+    events:
+      - http:
+          path: screenshot-async
+          method: post
+          cors: true
+      - http:
+          path: screenshot-async
+          method: options
+          cors: true
+
+  # Worker - triggered by SQS, takes screenshot with Puppeteer
+  screenshotWorker:
+    handler: handler.screenshotWorker
+    timeout: 60
+    memorySize: 3008
+    reservedConcurrency: 100
+    events:
+      - sqs:
+          arn: !GetAtt JobsQueue.Arn
+          batchSize: 1
+
+  # Get results by renderId or batchId
+  getResults:
+    handler: handler.getResults
+    timeout: 30
+    memorySize: 256
+    events:
+      - http:
+          path: results/{renderId}
+          method: get
+          cors: true
+      - http:
+          path: results/{renderId}
+          method: options
+          cors: true
+      - http:
+          path: results
+          method: get
+          cors: true
+      - http:
+          path: results
+          method: options
+          cors: true
+
+resources:
+  Resources:
+    ResultsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:service}-results-${sls:stage}
+        LifecycleConfiguration:
+          Rules:
+            - Id: DeleteOldResults
+              Status: Enabled
+              ExpirationInDays: 1
+
+    JobsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-jobs-${sls:stage}
+        VisibilityTimeout: 120
+        MessageRetentionPeriod: 3600
 
 package:
   patterns:
@@ -40,3 +131,5 @@ custom:
     platform: node
     external:
       - '@sparticuz/chromium'
+      - '@aws-sdk/client-s3'
+      - '@aws-sdk/client-sqs'
