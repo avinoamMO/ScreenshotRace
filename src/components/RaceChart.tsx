@@ -1,3 +1,4 @@
+import { useMemo, memo, useCallback } from 'react';
 import {
   BarChart,
   Bar,
@@ -46,31 +47,34 @@ function formatTime(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-export function RaceChart({ results, onHover }: RaceChartProps) {
-  const chartData: ChartDataItem[] = results.map((race) => {
-    const item: ChartDataItem = {
-      name: truncateUrl(race.url),
-      url: race.url,
-      results: {},
-    };
+export const RaceChart = memo(function RaceChart({ results, onHover }: RaceChartProps) {
+  // Memoize chart data transformation
+  const chartData: ChartDataItem[] = useMemo(() => {
+    return results.map((race) => {
+      const item: ChartDataItem = {
+        name: truncateUrl(race.url),
+        url: race.url,
+        results: {},
+      };
 
-    race.results.forEach((result) => {
-      // Convert to seconds for cleaner display
-      item[result.provider as keyof ChartDataItem] = result.success
-        ? Math.round(result.timeMs)
-        : 0;
-      item.results[result.provider] = result;
+      race.results.forEach((result) => {
+        // Convert to seconds for cleaner display
+        item[result.provider as keyof ChartDataItem] = result.success
+          ? Math.round(result.timeMs)
+          : 0;
+        item.results[result.provider] = result;
+      });
+
+      return item;
     });
+  }, [results]);
 
-    return item;
-  });
-
-  const handleBarMouseEnter = (data: ChartDataItem, provider: string) => {
+  const handleBarMouseEnter = useCallback((data: ChartDataItem, provider: string) => {
     const result = data.results[provider];
     if (result) {
       onHover(result);
     }
-  };
+  }, [onHover]);
 
   if (results.length === 0) {
     return (
@@ -139,4 +143,4 @@ export function RaceChart({ results, onHover }: RaceChartProps) {
       </ResponsiveContainer>
     </div>
   );
-}
+});

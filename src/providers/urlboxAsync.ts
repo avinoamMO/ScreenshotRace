@@ -1,4 +1,6 @@
 import type { ScreenshotResult } from '../types';
+import { getNextInterval } from '../utils/pollWithBackoff';
+import { Semaphore } from '../utils/semaphore';
 
 interface AsyncRenderResponse {
   status: string;
@@ -23,7 +25,8 @@ interface PendingJob {
 export async function takeScreenshotBatch(
   urls: string[],
   apiKey: string,
-  apiSecret: string
+  apiSecret: string,
+  signal?: AbortSignal
 ): Promise<ScreenshotResult[]> {
   if (!apiKey || !apiSecret) {
     return urls.map(url => ({
@@ -39,12 +42,35 @@ export async function takeScreenshotBatch(
     return [];
   }
 
+  // Check if already aborted
+  if (signal?.aborted) {
+    return urls.map(url => ({
+      provider: 'urlboxAsync',
+      url,
+      success: false,
+      timeMs: 0,
+      error: 'Request cancelled',
+    }));
+  }
+
   // Step 1: Fire ALL async requests at once
   const pendingJobs: PendingJob[] = [];
   const failedUrls: ScreenshotResult[] = [];
 
   const firePromises = urls.map(async (url) => {
     const startTime = performance.now();
+
+    // Check if aborted before each request
+    if (signal?.aborted) {
+      failedUrls.push({
+        provider: 'urlboxAsync',
+        url,
+        success: false,
+        timeMs: 0,
+        error: 'Request cancelled',
+      });
+      return;
+    }
 
     try {
       const response = await fetch('/api/urlbox/v1/render/async', {
@@ -59,6 +85,7 @@ export async function takeScreenshotBatch(
           width: 1280,
           height: 800,
         }),
+        signal,
       });
 
       if (!response.ok) {
@@ -96,25 +123,49 @@ export async function takeScreenshotBatch(
   const results: ScreenshotResult[] = [...failedUrls];
   const completedRenderIds = new Set<string>();
 
-  const maxAttempts = 120; // 120 * 500ms = 60 seconds
-  const pollInterval = 500;
+  const maxAttempts = 120; // With backoff: starts at 200ms, maxes at 2000ms
+
+  // Semaphore to limit concurrent image downloads (max 5 at once)
+  const downloadSemaphore = new Semaphore(5);
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (completedRenderIds.size >= pendingJobs.length) {
       break; // All done
     }
 
+    // Check if aborted before polling
+    if (signal?.aborted) {
+      // Return partial results plus cancelled for incomplete
+      for (const job of pendingJobs) {
+        if (!completedRenderIds.has(job.renderId)) {
+          results.push({
+            provider: 'urlboxAsync',
+            url: job.url,
+            success: false,
+            timeMs: performance.now() - job.startTime,
+            error: 'Request cancelled',
+          });
+        }
+      }
+      return results;
+    }
+
+    const pollInterval = getNextInterval(attempt);
     await new Promise(resolve => setTimeout(resolve, pollInterval));
 
     // Poll all pending jobs in parallel
     const pollPromises = pendingJobs
       .filter(job => !completedRenderIds.has(job.renderId))
       .map(async (job) => {
+        // Check if aborted
+        if (signal?.aborted) return;
+
         try {
           const statusResponse = await fetch(`/api/urlbox/v1/render/${job.renderId}`, {
             headers: {
               'Authorization': `Bearer ${apiSecret}`,
             },
+            signal,
           });
 
           if (!statusResponse.ok) {
@@ -126,22 +177,44 @@ export async function takeScreenshotBatch(
           if (status.status === 'succeeded' && status.renderUrl) {
             completedRenderIds.add(job.renderId);
 
-            // Fetch the actual image
-            try {
-              const imageResponse = await fetch(status.renderUrl);
-              if (imageResponse.ok) {
-                const blob = await imageResponse.blob();
-                const imageData = await blobToDataUrl(blob);
-
+            // Fetch the actual image (with semaphore to limit concurrent downloads)
+            await downloadSemaphore.withLock(async () => {
+              // Check if aborted before downloading
+              if (signal?.aborted) {
                 results.push({
                   provider: 'urlboxAsync',
                   url: job.url,
-                  success: true,
+                  success: false,
                   timeMs: performance.now() - job.startTime,
-                  imageData,
-                  imageSize: blob.size,
+                  error: 'Request cancelled',
                 });
-              } else {
+                return;
+              }
+
+              try {
+                const imageResponse = await fetch(status.renderUrl!, { signal });
+                if (imageResponse.ok) {
+                  const blob = await imageResponse.blob();
+                  const imageData = await blobToDataUrl(blob);
+
+                  results.push({
+                    provider: 'urlboxAsync',
+                    url: job.url,
+                    success: true,
+                    timeMs: performance.now() - job.startTime,
+                    imageData,
+                    imageSize: blob.size,
+                  });
+                } else {
+                  results.push({
+                    provider: 'urlboxAsync',
+                    url: job.url,
+                    success: false,
+                    timeMs: performance.now() - job.startTime,
+                    error: 'Failed to fetch rendered image',
+                  });
+                }
+              } catch (error) {
                 results.push({
                   provider: 'urlboxAsync',
                   url: job.url,
@@ -150,15 +223,7 @@ export async function takeScreenshotBatch(
                   error: 'Failed to fetch rendered image',
                 });
               }
-            } catch (error) {
-              results.push({
-                provider: 'urlboxAsync',
-                url: job.url,
-                success: false,
-                timeMs: performance.now() - job.startTime,
-                error: 'Failed to fetch rendered image',
-              });
-            }
+            });
           } else if (status.status === 'failed') {
             completedRenderIds.add(job.renderId);
             results.push({
@@ -198,9 +263,10 @@ export async function takeScreenshotBatch(
 export async function takeScreenshot(
   url: string,
   apiKey: string,
-  apiSecret: string
+  apiSecret: string,
+  signal?: AbortSignal
 ): Promise<ScreenshotResult> {
-  const results = await takeScreenshotBatch([url], apiKey, apiSecret);
+  const results = await takeScreenshotBatch([url], apiKey, apiSecret, signal);
   return results[0];
 }
 

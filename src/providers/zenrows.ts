@@ -1,8 +1,11 @@
 import type { ScreenshotResult } from '../types';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
+import { withRetry } from '../utils/retry';
 
 export async function takeScreenshot(
   url: string,
-  apiKey: string
+  apiKey: string,
+  signal?: AbortSignal
 ): Promise<ScreenshotResult> {
   const startTime = performance.now();
 
@@ -13,6 +16,17 @@ export async function takeScreenshot(
       success: false,
       timeMs: 0,
       error: 'API key not configured',
+    };
+  }
+
+  // Check if already aborted
+  if (signal?.aborted) {
+    return {
+      provider: 'zenrows',
+      url,
+      success: false,
+      timeMs: 0,
+      error: 'Request cancelled',
     };
   }
 
@@ -28,7 +42,15 @@ export async function takeScreenshot(
 
     // Double-encode the URL because Vite proxy decodes it once during forwarding
     const doubleEncodedUrl = encodeURIComponent(encodeURIComponent(url));
-    const response = await fetch(`/api/zenrows/v1/?${params.toString()}&url=${doubleEncodedUrl}`);
+    const response = await withRetry(
+      () => fetchWithTimeout(
+        `/api/zenrows/v1/?${params.toString()}&url=${doubleEncodedUrl}`,
+        {},
+        30000,
+        signal
+      ),
+      { maxAttempts: 2 }
+    );
 
     const timeMs = performance.now() - startTime;
 

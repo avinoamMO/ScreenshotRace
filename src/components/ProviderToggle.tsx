@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { PROVIDERS, isProviderConfigured, type ApiKeys, type ProviderName } from '../types';
 
 interface ProviderToggleProps {
@@ -6,7 +7,7 @@ interface ProviderToggleProps {
   onToggle: (provider: ProviderName) => void;
 }
 
-export function ProviderToggle({
+export const ProviderToggle = memo(function ProviderToggle({
   enabledProviders,
   apiKeys,
   onToggle,
@@ -70,4 +71,4 @@ export function ProviderToggle({
       })}
     </div>
   );
-}
+});

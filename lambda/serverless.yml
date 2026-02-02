@@ -29,11 +29,13 @@ provider:
             - sqs:GetQueueAttributes
           Resource:
             - !GetAtt JobsQueue.Arn
+            - !GetAtt JobsDLQ.Arn
 
 functions:
   # Original Puppeteer screenshot endpoint (sync)
   screenshot:
     handler: handler.screenshot
+    provisionedConcurrency: 2
     events:
       - http:
           path: screenshot
@@ -105,12 +107,81 @@ resources:
               Status: Enabled
               ExpirationInDays: 1
 
+    JobsDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-jobs-dlq-${sls:stage}
+        MessageRetentionPeriod: 1209600  # 14 days
+
     JobsQueue:
       Type: AWS::SQS::Queue
       Properties:
         QueueName: ${self:service}-jobs-${sls:stage}
-        VisibilityTimeout: 120
-        MessageRetentionPeriod: 3600
+        VisibilityTimeout: 360
+        MessageRetentionPeriod: 86400  # 24 hours
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt JobsDLQ.Arn
+          maxReceiveCount: 3
+
+    DLQAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-dlq-messages-${sls:stage}
+        MetricName: ApproximateNumberOfMessagesVisible
+        Namespace: AWS/SQS
+        Dimensions:
+          - Name: QueueName
+            Value: !GetAtt JobsDLQ.QueueName
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+
+    WorkerErrorAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-worker-errors-${sls:stage}
+        MetricName: Errors
+        Namespace: AWS/Lambda
+        Dimensions:
+          - Name: FunctionName
+            Value: !Ref ScreenshotWorkerLambdaFunction
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 5
+        ComparisonOperator: GreaterThanThreshold
+
+    WorkerDurationAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-worker-duration-${sls:stage}
+        MetricName: Duration
+        Namespace: AWS/Lambda
+        Dimensions:
+          - Name: FunctionName
+            Value: !Ref ScreenshotWorkerLambdaFunction
+        Statistic: Average
+        Period: 300
+        EvaluationPeriods: 2
+        Threshold: 45000
+        ComparisonOperator: GreaterThanThreshold
+
+    WorkerThrottleAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-worker-throttles-${sls:stage}
+        MetricName: Throttles
+        Namespace: AWS/Lambda
+        Dimensions:
+          - Name: FunctionName
+            Value: !Ref ScreenshotWorkerLambdaFunction
+        Statistic: Sum
+        Period: 60
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
 
 package:
   patterns:

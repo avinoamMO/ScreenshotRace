@@ -1,4 +1,5 @@
 import type { ScreenshotResult } from '../types';
+import { getNextInterval } from '../utils/pollWithBackoff';
 
 interface AsyncJob {
   jobId: string;
@@ -33,7 +34,8 @@ interface BatchResultsResponse {
 // Batch function - sends ALL URLs at once, polls for all results
 export async function takeScreenshotBatch(
   urls: string[],
-  lambdaUrl: string
+  lambdaUrl: string,
+  signal?: AbortSignal
 ): Promise<ScreenshotResult[]> {
   const startTime = performance.now();
 
@@ -51,6 +53,17 @@ export async function takeScreenshotBatch(
     return [];
   }
 
+  // Check if already aborted
+  if (signal?.aborted) {
+    return urls.map(url => ({
+      provider: 'lambdaAsync',
+      url,
+      success: false,
+      timeMs: 0,
+      error: 'Request cancelled',
+    }));
+  }
+
   try {
     // Step 1: Queue ALL jobs at once
     const response = await fetch(`${lambdaUrl}/screenshot-async`, {
@@ -61,6 +74,7 @@ export async function takeScreenshotBatch(
       body: JSON.stringify({
         urls,
       }),
+      signal,
     });
 
     if (!response.ok) {
@@ -84,8 +98,7 @@ export async function takeScreenshotBatch(
     }
 
     // Step 2: Poll until ALL jobs complete
-    const maxAttempts = 180; // 180 * 500ms = 90 seconds max
-    const pollInterval = 500;
+    const maxAttempts = 180; // With backoff: starts at 200ms, maxes at 2000ms
     const results: ScreenshotResult[] = [];
     const completedUrls = new Set<string>();
 
@@ -94,10 +107,28 @@ export async function takeScreenshotBatch(
         break; // All done
       }
 
+      // Check if aborted before polling
+      if (signal?.aborted) {
+        // Return partial results plus cancelled for incomplete
+        for (const url of urls) {
+          if (!completedUrls.has(url)) {
+            results.push({
+              provider: 'lambdaAsync',
+              url,
+              success: false,
+              timeMs: performance.now() - startTime,
+              error: 'Request cancelled',
+            });
+          }
+        }
+        return results;
+      }
+
+      const pollInterval = getNextInterval(attempt);
       await new Promise(resolve => setTimeout(resolve, pollInterval));
 
       try {
-        const resultsResponse = await fetch(`${lambdaUrl}/results?batchId=${batchId}`);
+        const resultsResponse = await fetch(`${lambdaUrl}/results?batchId=${batchId}`, { signal });
 
         if (!resultsResponse.ok) {
           continue;
@@ -121,7 +152,7 @@ export async function takeScreenshotBatch(
                 url,
                 success: true,
                 timeMs: result.timeMs || (performance.now() - startTime),
-                imageData: `data:image/jpeg;base64,${result.screenshot}`,
+                imageData: `data:image/webp;base64,${result.screenshot}`,
                 imageSize: result.size,
               });
             } else {
@@ -173,8 +204,9 @@ export async function takeScreenshotBatch(
 // Single URL function (for backwards compatibility)
 export async function takeScreenshot(
   url: string,
-  lambdaUrl: string
+  lambdaUrl: string,
+  signal?: AbortSignal
 ): Promise<ScreenshotResult> {
-  const results = await takeScreenshotBatch([url], lambdaUrl);
+  const results = await takeScreenshotBatch([url], lambdaUrl, signal);
   return results[0];
 }

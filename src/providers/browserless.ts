@@ -1,8 +1,11 @@
 import type { ScreenshotResult } from '../types';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
+import { withRetry } from '../utils/retry';
 
 export async function takeScreenshot(
   url: string,
-  apiKey: string
+  apiKey: string,
+  signal?: AbortSignal
 ): Promise<ScreenshotResult> {
   const startTime = performance.now();
 
@@ -16,25 +19,44 @@ export async function takeScreenshot(
     };
   }
 
+  // Check if already aborted
+  if (signal?.aborted) {
+    return {
+      provider: 'browserless',
+      url,
+      success: false,
+      timeMs: 0,
+      error: 'Request cancelled',
+    };
+  }
+
   try {
-    const response = await fetch(`/api/browserless/screenshot?token=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url,
-        options: {
-          type: 'jpeg',
-          quality: 85,
-          fullPage: false,
+    const response = await withRetry(
+      () => fetchWithTimeout(
+        `/api/browserless/screenshot?token=${apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url,
+            options: {
+              type: 'webp',
+              quality: 80,
+              fullPage: false,
+            },
+            gotoOptions: {
+              waitUntil: 'networkidle2',
+              timeout: 30000,
+            },
+          }),
         },
-        gotoOptions: {
-          waitUntil: 'networkidle2',
-          timeout: 30000,
-        },
-      }),
-    });
+        30000,
+        signal
+      ),
+      { maxAttempts: 2 }
+    );
 
     const timeMs = performance.now() - startTime;
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { UrlInput } from './components/UrlInput';
 import { RaceChart } from './components/RaceChart';
 import { PreviewPanel } from './components/PreviewPanel';
@@ -8,6 +8,7 @@ import { Stopwatch } from './components/Stopwatch';
 import { ComparisonTable } from './components/ComparisonTable';
 import { raceAllUrls } from './providers';
 import { checkQuality } from './utils/qualityCheck';
+import { Semaphore } from './utils/semaphore';
 import type { ApiKeys, ProviderName, RaceResult, ScreenshotResult } from './types';
 import { PROVIDERS, isProviderConfigured } from './types';
 
@@ -26,11 +27,19 @@ function App() {
     completed: number;
     total: number;
   }>({ completed: 0, total: 0 });
-  const stopRaceRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const configuredProviderCount = PROVIDERS.filter((p) =>
-    isProviderConfigured(p.name, apiKeys)
-  ).length;
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
+  const configuredProviderCount = useMemo(
+    () => PROVIDERS.filter((p) => isProviderConfigured(p.name, apiKeys)).length,
+    [apiKeys]
+  );
 
   const handleToggleProvider = useCallback((provider: ProviderName) => {
     setEnabledProviders((prev) =>
@@ -52,7 +61,10 @@ function App() {
         return;
       }
 
-      stopRaceRef.current = false;
+      // Create new AbortController for this race
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
+
       setIsRacing(true);
       setResults([]);
 
@@ -66,21 +78,24 @@ function App() {
         resultsMap.set(url, []);
       }
 
+      // Semaphore to limit concurrent quality checks (max 10 at once)
+      const qualitySemaphore = new Semaphore(10);
+
       // Race ALL URLs in parallel with true async
       const finalResultsMap = await raceAllUrls(
         urls,
         activeProviders,
         apiKeys,
         async (result) => {
-          if (stopRaceRef.current) return;
+          if (signal.aborted) return;
 
           completedJobs++;
           setTotalProgress({ completed: completedJobs, total: totalJobs });
 
-          // Run quality check
+          // Run quality check (with semaphore to limit concurrent checks)
           let resultWithQuality = result;
           if (result.success) {
-            const quality = await checkQuality(result);
+            const quality = await qualitySemaphore.withLock(() => checkQuality(result));
             resultWithQuality = { ...result, quality };
           }
 
@@ -98,7 +113,8 @@ function App() {
             .filter((r) => r.results.length > 0);
 
           setResults(raceResults);
-        }
+        },
+        signal
       );
 
       // Final update with all results
@@ -110,14 +126,14 @@ function App() {
         };
       });
 
-      // Run quality checks on any results that don't have them yet
+      // Run quality checks on any results that don't have them yet (with semaphore)
       const resultsWithQuality = await Promise.all(
         finalResults.map(async (raceResult) => ({
           ...raceResult,
           results: await Promise.all(
             raceResult.results.map(async (result) => {
               if (result.success && !result.quality) {
-                const quality = await checkQuality(result);
+                const quality = await qualitySemaphore.withLock(() => checkQuality(result));
                 return { ...result, quality };
               }
               return result;
@@ -134,7 +150,7 @@ function App() {
   );
 
   const handleStop = useCallback(() => {
-    stopRaceRef.current = true;
+    abortControllerRef.current?.abort();
     setIsRacing(false);
     setTotalProgress({ completed: 0, total: 0 });
   }, []);

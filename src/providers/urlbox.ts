@@ -1,9 +1,12 @@
 import type { ScreenshotResult } from '../types';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
+import { withRetry } from '../utils/retry';
 
 export async function takeScreenshot(
   url: string,
   apiKey: string,
-  secret: string
+  secret: string,
+  signal?: AbortSignal
 ): Promise<ScreenshotResult> {
   const startTime = performance.now();
 
@@ -17,11 +20,22 @@ export async function takeScreenshot(
     };
   }
 
+  // Check if already aborted
+  if (signal?.aborted) {
+    return {
+      provider: 'urlbox',
+      url,
+      success: false,
+      timeMs: 0,
+      error: 'Request cancelled',
+    };
+  }
+
   try {
     const params = new URLSearchParams({
       url,
-      format: 'jpeg',
-      quality: '85',
+      format: 'webp',
+      quality: '80',
       width: '1280',
       height: '800',
       delay: '2000',
@@ -30,9 +44,15 @@ export async function takeScreenshot(
     const queryString = params.toString();
     const token = await generateHmacSignature(queryString, secret);
 
-    // URLBox API: https://api.urlbox.com/v1/{apiKey}/{token}/jpeg?{queryString}
-    const response = await fetch(
-      `/api/urlbox/v1/${apiKey}/${token}/jpeg?${queryString}`
+    // URLBox API: https://api.urlbox.com/v1/{apiKey}/{token}/webp?{queryString}
+    const response = await withRetry(
+      () => fetchWithTimeout(
+        `/api/urlbox/v1/${apiKey}/${token}/webp?${queryString}`,
+        {},
+        30000,
+        signal
+      ),
+      { maxAttempts: 2 }
     );
 
     const timeMs = performance.now() - startTime;

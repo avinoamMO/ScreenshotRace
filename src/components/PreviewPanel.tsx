@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { ScreenshotResult } from '../types';
 import { PROVIDERS } from '../types';
 
@@ -16,7 +17,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function PreviewPanel({ result }: PreviewPanelProps) {
+export const PreviewPanel = memo(function PreviewPanel({ result }: PreviewPanelProps) {
   if (!result) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-800 rounded-lg border border-gray-700">
@@ -141,4 +142,4 @@ export function PreviewPanel({ result }: PreviewPanelProps) {
       )}
     </div>
   );
-}
+});

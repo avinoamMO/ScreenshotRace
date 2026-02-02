@@ -1,3 +1,4 @@
+import { useMemo, memo } from 'react';
 import type { RaceResult } from '../types';
 import { PROVIDERS } from '../types';
 
@@ -16,58 +17,63 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function ComparisonTable({ results }: ComparisonTableProps) {
-  // Get all providers that have results
-  const activeProviders = PROVIDERS.filter((provider) =>
-    results.some((r) => r.results.some((res) => res.provider === provider.name))
-  );
-
-  // Calculate stats per provider
-  const providerStats = activeProviders.map((provider) => {
-    const allResults = results.flatMap((r) =>
-      r.results.filter((res) => res.provider === provider.name)
+export const ComparisonTable = memo(function ComparisonTable({ results }: ComparisonTableProps) {
+  // Calculate stats per provider with memoization
+  const { providerStats, fastestAvg } = useMemo(() => {
+    // Get all providers that have results
+    const activeProviders = PROVIDERS.filter((provider) =>
+      results.some((r) => r.results.some((res) => res.provider === provider.name))
     );
-    const successfulResults = allResults.filter((r) => r.success);
-    const failedResults = allResults.filter((r) => !r.success);
 
-    const avgTime =
-      successfulResults.length > 0
-        ? successfulResults.reduce((sum, r) => sum + r.timeMs, 0) / successfulResults.length
-        : 0;
+    // Calculate stats per provider
+    const stats = activeProviders.map((provider) => {
+      const allResults = results.flatMap((r) =>
+        r.results.filter((res) => res.provider === provider.name)
+      );
+      const successfulResults = allResults.filter((r) => r.success);
+      const failedResults = allResults.filter((r) => !r.success);
 
-    const minTime =
-      successfulResults.length > 0
-        ? Math.min(...successfulResults.map((r) => r.timeMs))
-        : 0;
+      const avgTime =
+        successfulResults.length > 0
+          ? successfulResults.reduce((sum, r) => sum + r.timeMs, 0) / successfulResults.length
+          : 0;
 
-    const maxTime =
-      successfulResults.length > 0
-        ? Math.max(...successfulResults.map((r) => r.timeMs))
-        : 0;
+      const minTime =
+        successfulResults.length > 0
+          ? Math.min(...successfulResults.map((r) => r.timeMs))
+          : 0;
 
-    const avgSize =
-      successfulResults.filter((r) => r.imageSize).length > 0
-        ? successfulResults
-            .filter((r) => r.imageSize)
-            .reduce((sum, r) => sum + (r.imageSize || 0), 0) /
-          successfulResults.filter((r) => r.imageSize).length
-        : 0;
+      const maxTime =
+        successfulResults.length > 0
+          ? Math.max(...successfulResults.map((r) => r.timeMs))
+          : 0;
 
-    return {
-      provider,
-      total: allResults.length,
-      successful: successfulResults.length,
-      failed: failedResults.length,
-      successRate: allResults.length > 0 ? (successfulResults.length / allResults.length) * 100 : 0,
-      avgTime,
-      minTime,
-      maxTime,
-      avgSize,
-    };
-  });
+      const avgSize =
+        successfulResults.filter((r) => r.imageSize).length > 0
+          ? successfulResults
+              .filter((r) => r.imageSize)
+              .reduce((sum, r) => sum + (r.imageSize || 0), 0) /
+            successfulResults.filter((r) => r.imageSize).length
+          : 0;
 
-  // Find the fastest provider
-  const fastestAvg = Math.min(...providerStats.filter((s) => s.avgTime > 0).map((s) => s.avgTime));
+      return {
+        provider,
+        total: allResults.length,
+        successful: successfulResults.length,
+        failed: failedResults.length,
+        successRate: allResults.length > 0 ? (successfulResults.length / allResults.length) * 100 : 0,
+        avgTime,
+        minTime,
+        maxTime,
+        avgSize,
+      };
+    });
+
+    // Find the fastest provider
+    const fastest = Math.min(...stats.filter((s) => s.avgTime > 0).map((s) => s.avgTime));
+
+    return { providerStats: stats, fastestAvg: fastest };
+  }, [results]);
 
   if (results.length === 0) {
     return null;
@@ -169,4 +175,4 @@ export function ComparisonTable({ results }: ComparisonTableProps) {
       </div>
     </div>
   );
-}
+});

@@ -109,7 +109,7 @@ export async function checkQualityWithAI(
     }
 
     const base64Data = base64Match[1];
-    const mediaType = result.imageData.includes('png') ? 'image/png' : 'image/jpeg';
+    const mediaType = result.imageData.includes('png') ? 'image/png' : result.imageData.includes('webp') ? 'image/webp' : 'image/jpeg';
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
