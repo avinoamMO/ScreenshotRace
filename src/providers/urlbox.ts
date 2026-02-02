@@ -1,6 +1,7 @@
 import type { ScreenshotResult } from '../types';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 import { withRetry } from '../utils/retry';
+import { parseErrorMessage } from '../utils/parseError';
 
 export async function takeScreenshot(
   url: string,
@@ -65,7 +66,7 @@ export async function takeScreenshot(
         url,
         success: false,
         timeMs,
-        error: `HTTP ${response.status}: ${errorText.slice(0, 200)}`,
+        error: parseErrorMessage(response.status, errorText),
       };
     }
 
