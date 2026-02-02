@@ -50,7 +50,7 @@ export const ProviderResultsGrid = memo(function ProviderResultsGrid({
           const providerResults = resultsByProvider.get(provider.name) || [];
 
           return (
-            <div key={provider.name} className="flex flex-col w-96 flex-shrink-0">
+            <div key={provider.name} className="flex flex-col w-[480px] flex-shrink-0">
               {/* Provider Header */}
               <div
                 className="text-center py-2 px-3 rounded-t-lg font-medium text-white mb-2"
@@ -63,7 +63,7 @@ export const ProviderResultsGrid = memo(function ProviderResultsGrid({
               </div>
 
               {/* Results Column */}
-              <div className="flex flex-col gap-3 max-h-[600px] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-4 max-h-[800px] overflow-y-auto pr-1">
                 {providerResults.map((result, index) => (
                   <ProviderResultCard
                     key={`${result.url}-${index}`}
@@ -98,9 +98,9 @@ function ProviderResultCard({ result, providerColor }: ProviderResultCardProps) 
 
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
-      {/* Image - fixed height container */}
+      {/* Image - fixed height container, large enough to verify quality */}
       {result.success && result.imageData ? (
-        <div className="relative h-60 overflow-hidden bg-gray-900">
+        <div className="relative h-[300px] overflow-hidden bg-gray-900">
           <img
             src={result.imageData}
             alt={`Screenshot of ${domain}`}
@@ -113,7 +113,7 @@ function ProviderResultCard({ result, providerColor }: ProviderResultCardProps) 
           </div>
         </div>
       ) : (
-        <div className="h-60 bg-gray-800 flex items-center justify-center">
+        <div className="h-[300px] bg-gray-800 flex items-center justify-center">
           <span className="text-red-400 text-sm px-2 text-center">
             {result.error || 'Failed'}
           </span>
