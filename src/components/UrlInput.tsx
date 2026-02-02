@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ApiKeys, ProviderName } from '../types';
 import { isProviderConfigured } from '../types';
 import { takeScreenshot } from '../providers';
+import { getRandomUrls, TOTAL_URL_COUNT } from '../data/sampleUrls';
 
 interface UrlInputProps {
   onRace: (urls: string[]) => void;
@@ -15,38 +16,6 @@ const DEFAULT_URLS = [
   'https://news.ycombinator.com',
   'https://github.com',
 ];
-
-const NEWS_URLS = [
-  'https://www.nytimes.com',
-  'https://www.bbc.com/news',
-  'https://www.cnn.com',
-  'https://www.theguardian.com',
-  'https://www.washingtonpost.com',
-  'https://www.reuters.com',
-  'https://www.bloomberg.com',
-  'https://www.wsj.com',
-  'https://www.npr.org',
-  'https://www.apnews.com',
-  'https://www.usatoday.com',
-  'https://www.nbcnews.com',
-  'https://www.cbsnews.com',
-  'https://www.abcnews.go.com',
-  'https://www.foxnews.com',
-  'https://www.politico.com',
-  'https://www.theatlantic.com',
-  'https://www.economist.com',
-  'https://www.forbes.com',
-  'https://www.wired.com',
-  'https://techcrunch.com',
-  'https://www.theverge.com',
-  'https://arstechnica.com',
-  'https://www.engadget.com',
-];
-
-function getRandomUrls(count: number): string[] {
-  const shuffled = [...NEWS_URLS].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
-}
 
 export function UrlInput({ onRace, isRacing, apiKeys, enabledProviders }: UrlInputProps) {
   const [urlText, setUrlText] = useState(DEFAULT_URLS.join('\n'));
@@ -120,7 +89,7 @@ export function UrlInput({ onRace, isRacing, apiKeys, enabledProviders }: UrlInp
         <div className="flex items-center gap-2">
           {/* - Button */}
           <button
-            onClick={() => setPopulateCount((c) => Math.max(1, c - 1))}
+            onClick={() => setPopulateCount((c) => Math.max(1, c - 5))}
             disabled={isRacing || populateCount <= 1}
             className="w-8 h-8 flex items-center justify-center bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-gray-300 rounded-lg transition-colors text-lg font-bold"
           >
@@ -141,8 +110,8 @@ export function UrlInput({ onRace, isRacing, apiKeys, enabledProviders }: UrlInp
 
           {/* + Button */}
           <button
-            onClick={() => setPopulateCount((c) => Math.min(NEWS_URLS.length, c + 1))}
-            disabled={isRacing || populateCount >= NEWS_URLS.length}
+            onClick={() => setPopulateCount((c) => Math.min(TOTAL_URL_COUNT, c + 5))}
+            disabled={isRacing || populateCount >= TOTAL_URL_COUNT}
             className="w-8 h-8 flex items-center justify-center bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-gray-300 rounded-lg transition-colors text-lg font-bold"
           >
             +
