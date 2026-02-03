@@ -50,7 +50,7 @@ export const ProviderResultsGrid = memo(function ProviderResultsGrid({
           const providerResults = resultsByProvider.get(provider.name) || [];
 
           return (
-            <div key={provider.name} className="flex flex-col w-[600px] flex-shrink-0">
+            <div key={provider.name} className="flex flex-col w-[900px] flex-shrink-0">
               {/* Provider Header */}
               <div
                 className="text-center py-2 px-3 rounded-t-lg font-medium text-white mb-2"
@@ -63,7 +63,7 @@ export const ProviderResultsGrid = memo(function ProviderResultsGrid({
               </div>
 
               {/* Results Column */}
-              <div className="flex flex-col gap-4 max-h-[800px] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-4 overflow-y-auto pr-1">
                 {providerResults.map((result, index) => (
                   <ProviderResultCard
                     key={`${result.url}-${index}`}
