@@ -1,0 +1,240 @@
+service: screenshot-race-lambda
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  timeout: 60
+  memorySize: 3008
+  architecture: x86_64
+  apiGateway:
+    apiKeys:
+      - app1
+      - app2
+      - app3
+    usagePlan:
+      throttle:
+        burstLimit: 50
+        rateLimit: 20
+      quota:
+        limit: 10000
+        period: DAY
+  environment:
+    RESULTS_BUCKET: ${self:service}-results-${sls:stage}
+    JOBS_QUEUE_URL: !Ref JobsQueue
+    ANTHROPIC_API_KEY: ${env:ANTHROPIC_API_KEY, ''}
+    BROWSERLESS_API_KEY: ${env:BROWSERLESS_API_KEY, ''}
+    URLBOX_API_KEY: ${env:URLBOX_API_KEY, ''}
+    URLBOX_API_SECRET: ${env:URLBOX_API_SECRET, ''}
+    ZENROWS_API_KEY: ${env:ZENROWS_API_KEY, ''}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+          Resource:
+            - arn:aws:s3:::${self:service}-results-${sls:stage}
+            - arn:aws:s3:::${self:service}-results-${sls:stage}/*
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:GetQueueAttributes
+          Resource:
+            - !GetAtt JobsQueue.Arn
+            - !GetAtt JobsDLQ.Arn
+
+functions:
+  # Optimized screenshot - queues jobs with AI quality + fallback orchestration
+  screenshotOptimized:
+    handler: handler.screenshotOptimized
+    timeout: 10
+    memorySize: 256
+    events:
+      - http:
+          path: screenshot-optimized
+          method: post
+          cors: true
+          private: true
+      - http:
+          path: screenshot-optimized
+          method: options
+          cors: true
+
+  # Worker - triggered by SQS, takes screenshot with Puppeteer (+ orchestration)
+  screenshotWorker:
+    handler: handler.screenshotWorker
+    timeout: 120
+    memorySize: 3008
+    reservedConcurrency: 50
+    events:
+      - sqs:
+          arn: !GetAtt JobsQueue.Arn
+          batchSize: 1
+
+  # Get results by renderId or batchId
+  getResults:
+    handler: handler.getResults
+    timeout: 30
+    memorySize: 256
+    events:
+      - http:
+          path: results/{renderId}
+          method: get
+          cors: true
+          private: true
+      - http:
+          path: results/{renderId}
+          method: options
+          cors: true
+      - http:
+          path: results
+          method: get
+          cors: true
+          private: true
+      - http:
+          path: results
+          method: options
+          cors: true
+
+  # Dedicated warmup endpoint
+  wakeup:
+    handler: handler.wakeup
+    timeout: 10
+    memorySize: 256
+    events:
+      - http:
+          path: wakeup
+          method: get
+          cors: true
+          private: true
+      - http:
+          path: wakeup
+          method: options
+          cors: true
+
+  # Public API documentation for coding agents
+  apidocs:
+    handler: handler.apidocs
+    timeout: 5
+    memorySize: 128
+    events:
+      - http:
+          path: apidocs
+          method: get
+          cors: true
+
+resources:
+  Resources:
+    ResultsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:service}-results-${sls:stage}
+        LifecycleConfiguration:
+          Rules:
+            - Id: DeleteOldResults
+              Status: Enabled
+              ExpirationInDays: 1
+
+    JobsDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-jobs-dlq-${sls:stage}
+        MessageRetentionPeriod: 1209600  # 14 days
+
+    JobsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-jobs-${sls:stage}
+        VisibilityTimeout: 360
+        MessageRetentionPeriod: 86400  # 24 hours
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt JobsDLQ.Arn
+          maxReceiveCount: 3
+
+    DLQAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-dlq-messages-${sls:stage}
+        MetricName: ApproximateNumberOfMessagesVisible
+        Namespace: AWS/SQS
+        Dimensions:
+          - Name: QueueName
+            Value: !GetAtt JobsDLQ.QueueName
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+
+    WorkerErrorAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-worker-errors-${sls:stage}
+        MetricName: Errors
+        Namespace: AWS/Lambda
+        Dimensions:
+          - Name: FunctionName
+            Value: !Ref ScreenshotWorkerLambdaFunction
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 5
+        ComparisonOperator: GreaterThanThreshold
+
+    WorkerDurationAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-worker-duration-${sls:stage}
+        MetricName: Duration
+        Namespace: AWS/Lambda
+        Dimensions:
+          - Name: FunctionName
+            Value: !Ref ScreenshotWorkerLambdaFunction
+        Statistic: Average
+        Period: 300
+        EvaluationPeriods: 2
+        Threshold: 45000
+        ComparisonOperator: GreaterThanThreshold
+
+    WorkerThrottleAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-worker-throttles-${sls:stage}
+        MetricName: Throttles
+        Namespace: AWS/Lambda
+        Dimensions:
+          - Name: FunctionName
+            Value: !Ref ScreenshotWorkerLambdaFunction
+        Statistic: Sum
+        Period: 60
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+
+package:
+  patterns:
+    - '!node_modules/**'
+    - 'node_modules/@sparticuz/chromium/**'
+    - 'node_modules/puppeteer-core/**'
+    - 'handler.js'
+
+plugins:
+  - serverless-esbuild
+
+custom:
+  esbuild:
+    bundle: true
+    minify: true
+    sourcemap: false
+    target: node20
+    platform: node
+    external:
+      - '@sparticuz/chromium'
+      - '@aws-sdk/client-s3'
+      - '@aws-sdk/client-sqs'
+      - '@aws-sdk/s3-request-presigner'
