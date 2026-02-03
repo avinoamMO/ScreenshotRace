@@ -234,7 +234,7 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="mx-auto px-4 py-8">
         <div className="space-y-8">
           {/* Provider Toggle */}
           <section>
