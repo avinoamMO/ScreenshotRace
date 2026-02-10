@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScreenshotRace - Race your screenshots across multiple providers</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-hover: #79c0ff;
+      --green: #3fb950;
+      --orange: #d29922;
+      --red: #f85149;
+      --purple: #bc8cff;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      padding: 80px 0 60px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 12px;
+    }
+
+    header h1 span { color: var(--accent); }
+
+    header p.tagline {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+
+    .badges {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .badge.ts { color: #3178c6; }
+    .badge.aws { color: #ff9900; }
+    .badge.ai { color: var(--purple); }
+    .badge.mit { color: var(--green); }
+
+    /* Features */
+    .features {
+      padding: 60px 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .feature {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .feature h3 {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+    }
+
+    .feature p { color: var(--text-muted); font-size: 0.95rem; }
+
+    .feature .icon {
+      font-size: 1.5rem;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    /* Demo */
+    .demo-section {
+      padding: 60px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .demo-section h2 {
+      font-size: 1.75rem;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .demo-section .subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+
+    .demo-form {
+      display: flex;
+      gap: 12px;
+      max-width: 640px;
+      margin: 0 auto 24px;
+    }
+
+    .demo-form input {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+    }
+
+    .demo-form input:focus { border-color: var(--accent); }
+
+    .demo-form input::placeholder { color: var(--text-muted); }
+
+    .demo-form button {
+      padding: 12px 24px;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .demo-form button:hover { background: var(--accent-hover); }
+    .demo-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .demo-config {
+      max-width: 640px;
+      margin: 0 auto 24px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .demo-config input {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .demo-config input:focus { border-color: var(--accent); }
+    .demo-config input::placeholder { color: var(--text-muted); }
+
+    .demo-config label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .demo-results {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .demo-status {
+      text-align: center;
+      padding: 16px;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .demo-status.error { color: var(--red); }
+
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .result-card .meta {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+    }
+
+    .result-card .provider { color: var(--accent); font-weight: 600; }
+    .result-card .time { color: var(--text-muted); }
+    .result-card .score { color: var(--green); font-weight: 600; }
+    .result-card .score.bad { color: var(--red); }
+
+    .result-card img {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    /* Provider Table */
+    .providers-section {
+      padding: 60px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .providers-section h2 {
+      font-size: 1.75rem;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: var(--bg);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    td { font-size: 0.95rem; }
+
+    tr:last-child td { border-bottom: none; }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+
+    .status-dot.green { background: var(--green); }
+    .status-dot.orange { background: var(--orange); }
+    .status-dot.red { background: var(--red); }
+
+    /* Deploy */
+    .deploy-section {
+      padding: 60px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .deploy-section h2 {
+      font-size: 1.75rem;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .code-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      overflow-x: auto;
+      margin-bottom: 16px;
+    }
+
+    .code-block code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.9rem;
+      color: var(--text);
+      line-height: 1.8;
+    }
+
+    .code-block .comment { color: var(--text-muted); }
+    .code-block .keyword { color: var(--purple); }
+    .code-block .string { color: var(--green); }
+
+    /* Footer */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    footer a { color: var(--text-muted); }
+    footer a:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="container">
+      <h1>Screenshot<span>Race</span></h1>
+      <p class="tagline">Race your screenshots across multiple providers. Keep the best one.</p>
+      <div class="badges">
+        <span class="badge ts">TypeScript</span>
+        <span class="badge aws">AWS Lambda</span>
+        <span class="badge ai">AI Quality</span>
+        <span class="badge mit">MIT License</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Features -->
+  <section class="container">
+    <div class="features">
+      <div class="feature">
+        <span class="icon">&#9889;</span>
+        <h3>Multi-Provider Racing</h3>
+        <p>4 providers race in parallel: Puppeteer, Browserless, URLBox, and ZenRows. The best result wins.</p>
+      </div>
+      <div class="feature">
+        <span class="icon">&#129302;</span>
+        <h3>AI Quality Scoring</h3>
+        <p>Claude evaluates each screenshot for errors, paywalls, and validity. Composite scoring picks the winner.</p>
+      </div>
+      <div class="feature">
+        <span class="icon">&#128274;</span>
+        <h3>Paywall Bypass</h3>
+        <p>Detects login walls and paywalls automatically. Attempts up to 4 remediation strategies including cookie injection and header spoofing.</p>
+      </div>
+      <div class="feature">
+        <span class="icon">&#128640;</span>
+        <h3>Streaming Preview</h3>
+        <p>Puppeteer returns a fast preview within seconds while the full provider race completes in the background.</p>
+      </div>
+      <div class="feature">
+        <span class="icon">&#128230;</span>
+        <h3>Batch Processing</h3>
+        <p>Submit hundreds of URLs in a single request. SQS queue with DLQ handles retry logic and failure isolation.</p>
+      </div>
+      <div class="feature">
+        <span class="icon">&#128202;</span>
+        <h3>Vendor Analytics</h3>
+        <p>Scores are persisted per provider per day. Track which providers perform best for your use case over time.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Demo -->
+  <section class="demo-section">
+    <div class="container">
+      <h2>Try It</h2>
+      <p class="subtitle">Enter your API endpoint and key, then paste a URL to see it in action.</p>
+
+      <div class="demo-config">
+        <label>
+          Endpoint
+          <input type="text" id="apiBase" placeholder="https://your-api.execute-api.us-east-1.amazonaws.com/dev" />
+        </label>
+        <label>
+          Key
+          <input type="password" id="apiKey" placeholder="x-api-key" />
+        </label>
+      </div>
+
+      <div class="demo-form">
+        <input type="url" id="demoUrl" placeholder="https://example.com" />
+        <button id="demoBtn" onclick="runDemo()">Capture</button>
+      </div>
+
+      <div class="demo-results" id="demoResults">
+        <div class="demo-status" id="demoStatus"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Provider Comparison -->
+  <section class="providers-section">
+    <div class="container">
+      <h2>Provider Comparison</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Provider</th>
+            <th>Type</th>
+            <th>Speed</th>
+            <th>Paywall Bypass</th>
+            <th>Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Puppeteer</strong></td>
+            <td>Lambda-native</td>
+            <td><span class="status-dot green"></span>2-4s</td>
+            <td>Via AI remediation</td>
+            <td>Free (Lambda cost)</td>
+          </tr>
+          <tr>
+            <td><strong>Browserless</strong></td>
+            <td>External API</td>
+            <td><span class="status-dot green"></span>3-6s</td>
+            <td>Limited</td>
+            <td>Per-screenshot</td>
+          </tr>
+          <tr>
+            <td><strong>URLBox</strong></td>
+            <td>External API</td>
+            <td><span class="status-dot orange"></span>4-8s</td>
+            <td>Limited</td>
+            <td>Per-screenshot</td>
+          </tr>
+          <tr>
+            <td><strong>ZenRows</strong></td>
+            <td>External API</td>
+            <td><span class="status-dot orange"></span>5-10s</td>
+            <td>Built-in proxy rotation</td>
+            <td>Per-screenshot</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Deploy Your Own -->
+  <section class="deploy-section">
+    <div class="container">
+      <h2>Deploy Your Own</h2>
+      <div class="code-block">
+        <code>
+          <span class="comment"># Clone the repo</span><br>
+          git clone https://github.com/avinoamMO/ScreenshotRace.git<br>
+          cd ScreenshotRace<br>
+          npm install<br>
+          <br>
+          <span class="comment"># Set your API keys</span><br>
+          <span class="keyword">export</span> ANTHROPIC_API_KEY=<span class="string">"sk-ant-..."</span><br>
+          <span class="keyword">export</span> BROWSERLESS_API_KEY=<span class="string">"..."</span><br>
+          <br>
+          <span class="comment"># Deploy to AWS</span><br>
+          npx serverless deploy --stage prod
+        </code>
+      </div>
+      <p style="text-align: center; color: var(--text-muted);">
+        Full documentation on <a href="https://github.com/avinoamMO/ScreenshotRace">GitHub</a>.
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>
+        <a href="https://github.com/avinoamMO/ScreenshotRace">GitHub</a>
+        &nbsp;&middot;&nbsp;
+        <a href="https://github.com/avinoamMO/ScreenshotRace/blob/main/LICENSE">MIT License</a>
+        &nbsp;&middot;&nbsp;
+        Built by <a href="https://github.com/avinoamMO">avinoamMO</a>
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    async function runDemo() {
+      const baseUrl = document.getElementById('apiBase').value.replace(/\/$/, '');
+      const apiKey = document.getElementById('apiKey').value;
+      const url = document.getElementById('demoUrl').value;
+      const btn = document.getElementById('demoBtn');
+      const status = document.getElementById('demoStatus');
+      const results = document.getElementById('demoResults');
+
+      if (!baseUrl || !apiKey) {
+        status.className = 'demo-status error';
+        status.textContent = 'Please enter your API endpoint and key above.';
+        return;
+      }
+
+      if (!url) {
+        status.className = 'demo-status error';
+        status.textContent = 'Please enter a URL to capture.';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Racing...';
+      results.innerHTML = '<div class="demo-status" id="demoStatus">Submitting job...</div>';
+      status = document.getElementById('demoStatus');
+
+      try {
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+        };
+
+        // Submit
+        const submitRes = await fetch(`${baseUrl}/screenshot-optimized`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ urls: url }),
+        });
+
+        if (!submitRes.ok) throw new Error(`Submit failed: ${submitRes.status}`);
+        const submitData = await submitRes.json();
+        const batchId = submitData.batchId;
+        const previewUrl = submitData.jobs[0]?.presignedUrls?.preview;
+
+        status.textContent = 'Job queued. Polling for results...';
+
+        // Show preview as soon as available
+        if (previewUrl) {
+          setTimeout(() => {
+            const img = new Image();
+            img.onload = () => {
+              const card = document.createElement('div');
+              card.className = 'result-card';
+              card.innerHTML = `
+                <div class="meta">
+                  <span class="provider">Preview (Puppeteer)</span>
+                  <span class="time">fast preview</span>
+                </div>
+              `;
+              card.appendChild(img);
+              results.insertBefore(card, status.nextSibling);
+            };
+            img.src = previewUrl;
+            img.style.cssText = 'width:100%;border-radius:8px;border:1px solid var(--border)';
+          }, 3000);
+        }
+
+        // Poll
+        let complete = false;
+        let attempts = 0;
+        while (!complete && attempts < 30) {
+          await new Promise(r => setTimeout(r, 2000));
+          attempts++;
+
+          const pollRes = await fetch(`${baseUrl}/results?batchId=${batchId}`, { headers });
+          if (!pollRes.ok) continue;
+
+          const pollData = await pollRes.json();
+          status.textContent = `Polling... (${pollData.completed}/${pollData.totalJobs} complete)`;
+
+          if (pollData.allComplete) {
+            complete = true;
+            results.innerHTML = '';
+
+            for (const r of pollData.results) {
+              if (!r.optimized) continue;
+              const card = document.createElement('div');
+              card.className = 'result-card';
+              const scoreClass = r.optimized.quality.score >= 7 ? 'score' : 'score bad';
+              card.innerHTML = `
+                <div class="meta">
+                  <span class="provider">${r.optimized.provider}</span>
+                  <span class="${scoreClass}">Score: ${r.optimized.quality.score}/10</span>
+                  <span class="time">${r.optimized.timeMs}ms</span>
+                </div>
+                <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:8px;">
+                  AI: ${r.optimized.quality.aiVerdict} |
+                  Providers tried: ${r.optimized.attempts.length} |
+                  Best: ${r.optimized.provider}
+                </div>
+              `;
+
+              // Try to load the optimized image
+              const job = submitData.jobs.find(j => j.jobId === r.jobId);
+              if (job?.presignedUrls?.optimized) {
+                const img = new Image();
+                img.src = job.presignedUrls.optimized;
+                img.style.cssText = 'width:100%;border-radius:8px;border:1px solid var(--border)';
+                card.appendChild(img);
+              }
+
+              results.appendChild(card);
+            }
+          }
+        }
+
+        if (!complete) {
+          status.className = 'demo-status error';
+          status.textContent = 'Timed out waiting for results.';
+        }
+      } catch (err) {
+        status.className = 'demo-status error';
+        status.textContent = `Error: ${err.message}`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Capture';
+      }
+    }
+  </script>
+
+</body>
+</html>
