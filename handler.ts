@@ -706,7 +706,7 @@ export async function getResults(
             body,
           };
         }
-      } catch (e) {
+      } catch {
         // Result not ready yet, check job status
         try {
           const jobResponse = await s3.send(new GetObjectCommand({

@@ -2,7 +2,6 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import { checkAI, checkAIWithRemediation } from './aiQuality';
 import type { AIQualityResult } from './aiQuality';
 import { screenshotViaBrowserless, screenshotViaUrlbox, screenshotViaZenrows } from './providers';
-import type { ProviderResult } from './providers';
 import { selectBest, isBestStillBad, computeScore } from './scoring';
 import type { ScoredAttempt } from './scoring';
 
@@ -525,7 +524,6 @@ export async function orchestrate(
   logger.info('Orchestration started', { jobId, batchId, url });
 
   // 40-second hard cutoff
-  let timedOut = false;
   const timeoutPromise = new Promise<'timeout'>((resolve) => {
     setTimeout(() => resolve('timeout'), 40000);
   });
@@ -537,7 +535,6 @@ export async function orchestrate(
     ]);
 
     if (result === 'timeout') {
-      timedOut = true;
       logger.warn('Orchestration hit 40s timeout', { jobId, batchId, url, elapsed: Date.now() - orchestrationStart });
 
       // Write timeout result

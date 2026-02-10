@@ -5,6 +5,11 @@ dist
 *.d.ts
 *.js.map
 
+# But keep config files
+!vitest.config.ts
+!eslint.config.mjs
+!.prettierrc
+
 # Logs
 *.log
 
@@ -16,3 +21,9 @@ dist
 
 # Environment
 .env
+
+# Coverage
+coverage
+
+# SDK build output
+sdk/dist
