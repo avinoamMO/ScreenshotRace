@@ -12,6 +12,6 @@
     "declaration": true,
     "moduleResolution": "node"
   },
-  "include": ["*.ts"],
-  "exclude": ["node_modules"]
+  "include": ["*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules", "sdk"]
 }

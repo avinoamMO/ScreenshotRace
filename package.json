@@ -1,8 +1,16 @@
 {
   "name": "screenshot-race-lambda",
   "version": "1.0.0",
-  "description": "AWS Lambda function for taking screenshots with Playwright",
+  "description": "Multi-provider screenshot service with AI quality evaluation",
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint '*.ts' 'tests/**/*.ts'",
+    "lint:fix": "eslint '*.ts' 'tests/**/*.ts' --fix",
+    "format": "prettier --write '*.ts' 'tests/**/*.ts'",
+    "format:check": "prettier --check '*.ts' 'tests/**/*.ts'",
+    "typecheck": "tsc --noEmit",
     "deploy": "serverless deploy",
     "invoke": "serverless invoke local -f screenshot"
   },
@@ -15,9 +23,16 @@
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.136",
+    "@typescript-eslint/eslint-plugin": "^8.55.0",
+    "@typescript-eslint/parser": "^8.55.0",
+    "@vitest/coverage-v8": "^4.0.18",
     "esbuild": "^0.20.2",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
     "serverless": "^3.38.0",
     "serverless-esbuild": "^1.51.0",
-    "typescript": "^5.4.3"
+    "typescript": "^5.4.3",
+    "vitest": "^4.0.18"
   }
 }
