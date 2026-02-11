@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ScreenshotRace - Race your screenshots across multiple providers</title>
+  <meta name="description" content="Multi-provider screenshot service with AI quality evaluation. Race screenshots across providers and pick the best.">
+  <meta property="og:title" content="ScreenshotRace - Multi-Provider Screenshot Racing">
+  <meta property="og:description" content="Multi-provider screenshot service with AI quality evaluation. Race screenshots across providers and pick the best.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://avinoammo.github.io/ScreenshotRace/">
   <style>
     :root {
       --bg: #0d1117;
@@ -501,25 +506,25 @@
       const apiKey = document.getElementById('apiKey').value;
       const url = document.getElementById('demoUrl').value;
       const btn = document.getElementById('demoBtn');
-      const status = document.getElementById('demoStatus');
+      let statusEl = document.getElementById('demoStatus');
       const results = document.getElementById('demoResults');
 
       if (!baseUrl || !apiKey) {
-        status.className = 'demo-status error';
-        status.textContent = 'Please enter your API endpoint and key above.';
+        statusEl.className = 'demo-status error';
+        statusEl.textContent = 'Please enter your API endpoint and key above.';
         return;
       }
 
       if (!url) {
-        status.className = 'demo-status error';
-        status.textContent = 'Please enter a URL to capture.';
+        statusEl.className = 'demo-status error';
+        statusEl.textContent = 'Please enter a URL to capture.';
         return;
       }
 
       btn.disabled = true;
       btn.textContent = 'Racing...';
       results.innerHTML = '<div class="demo-status" id="demoStatus">Submitting job...</div>';
-      status = document.getElementById('demoStatus');
+      statusEl = document.getElementById('demoStatus');
 
       try {
         const headers = {
@@ -539,7 +544,7 @@
         const batchId = submitData.batchId;
         const previewUrl = submitData.jobs[0]?.presignedUrls?.preview;
 
-        status.textContent = 'Job queued. Polling for results...';
+        statusEl.textContent = 'Job queued. Polling for results...';
 
         // Show preview as soon as available
         if (previewUrl) {
@@ -555,7 +560,7 @@
                 </div>
               `;
               card.appendChild(img);
-              results.insertBefore(card, status.nextSibling);
+              results.insertBefore(card, statusEl.nextSibling);
             };
             img.src = previewUrl;
             img.style.cssText = 'width:100%;border-radius:8px;border:1px solid var(--border)';
@@ -573,7 +578,7 @@
           if (!pollRes.ok) continue;
 
           const pollData = await pollRes.json();
-          status.textContent = `Polling... (${pollData.completed}/${pollData.totalJobs} complete)`;
+          statusEl.textContent = `Polling... (${pollData.completed}/${pollData.totalJobs} complete)`;
 
           if (pollData.allComplete) {
             complete = true;
@@ -612,12 +617,12 @@
         }
 
         if (!complete) {
-          status.className = 'demo-status error';
-          status.textContent = 'Timed out waiting for results.';
+          statusEl.className = 'demo-status error';
+          statusEl.textContent = 'Timed out waiting for results.';
         }
       } catch (err) {
-        status.className = 'demo-status error';
-        status.textContent = `Error: ${err.message}`;
+        statusEl.className = 'demo-status error';
+        statusEl.textContent = `Error: ${err.message}`;
       } finally {
         btn.disabled = false;
         btn.textContent = 'Capture';
