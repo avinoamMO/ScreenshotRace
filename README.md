@@ -409,6 +409,8 @@ with open("screenshot.webp", "wb") as f:
 npm test
 ```
 
+48 tests across 4 test suites covering handler logic, provider orchestration, scoring, and URL validation.
+
 ### Lint
 
 ```bash
